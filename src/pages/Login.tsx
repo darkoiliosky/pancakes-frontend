@@ -1,0 +1,83 @@
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+
+const loginSchema = z.object({
+  email: z.string().email("Внеси валиден емаил"),
+  password: z.string().min(6, "Лозинката мора да има најмалку 6 карактери"),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+
+function Login() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
+
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      await login(data);
+      navigate("/"); // ✅ пренасочување на Home
+    } catch (error: any) {
+      alert("❌ Грешка при најавување");
+      console.error(error);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#fffdf8]">
+      <div className="w-full max-w-md bg-white p-8 shadow-md rounded-2xl">
+        <h1 className="text-2xl font-bold mb-6 text-center text-brand">
+          Најава
+        </h1>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <div>
+            <label className="block mb-1 text-sm font-medium">Е-пошта</label>
+            <input
+              type="email"
+              {...register("email")}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.email.message}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block mb-1 text-sm font-medium">Лозинка</label>
+            <input
+              type="password"
+              {...register("password")}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-brand hover:bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-60"
+          >
+            {isSubmitting ? "Се најавуваш..." : "Најави се"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default Login;

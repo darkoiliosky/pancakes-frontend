@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    /* 🌐 Environment */
+    "target": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+
+    /* 📦 Module resolution */
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+
+    /* ⚙️ JS/TS interop */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* 🧠 Type checking */
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* 💅 JSX + React */
+    "jsx": "react-jsx",
+
+    /* ✅ Useful for Tailwind + React imports */
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "build"]
+}
