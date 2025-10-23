@@ -9,6 +9,7 @@ const registerSchema = z.object({
   name: z.string().min(2, "Името мора да содржи најмалку 2 карактери"),
   email: z.string().email("Внеси валиден емаил"),
   password: z.string().min(6, "Лозинката мора да содржи најмалку 6 карактери"),
+  phone: z.string().min(6, "Внесете валиден телефонски број"),
 });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -83,7 +84,19 @@ function Register() {
               </p>
             )}
           </div>
-
+          <div>
+            <label className="block mb-1 text-sm font-medium">Телефон</label>
+            <input
+              type="text"
+              {...register("phone")}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            {errors.phone && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.phone.message}
+              </p>
+            )}
+          </div>
           <button
             type="submit"
             disabled={isSubmitting}
