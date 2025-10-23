@@ -10,7 +10,7 @@ import {
   loginUser,
   registerUser,
   logoutUser,
-  getCurrentUser,
+  getCurrentUser, // ✅ вратено за да може refreshUser
 } from "../services/authService";
 import { LoginData, RegisterData } from "../types/auth";
 import { User } from "../types/user";
@@ -19,8 +19,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (data: LoginData) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>; // само trigger-не, без auto-login
+  register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>; // ✅ додадено во типот
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,18 +30,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Единствена авто-логин проверка по refresh кон /api/auth/me
   useEffect(() => {
-    const loadUser = async () => {
+    const fetchUser = async () => {
       try {
-        const res = await getCurrentUser();
-        setUser(res.user);
+        const res = await fetch("http://localhost:5000/api/auth/me", {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
       } catch {
         setUser(null);
       } finally {
-        setLoading(false);
+        setLoading(false); // ⬅️ овде го местиме loading
       }
     };
-    loadUser();
+    fetchUser();
   }, []);
 
   const login = async (data: LoginData) => {
@@ -58,8 +67,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   };
 
+  // ✅ ново: рефрешни го user-от од backend (/api/auth/me или еквивалент во authService)
+  const refreshUser = async () => {
+    try {
+      const res = await getCurrentUser(); // мора да праќа credentials: "include"
+      setUser(res.user);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, logout, refreshUser }} // ✅ додадено refreshUser
+    >
       {children}
     </AuthContext.Provider>
   );

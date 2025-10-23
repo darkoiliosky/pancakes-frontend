@@ -4,4 +4,18 @@
 
 body {
   @apply bg-[#fffdf8] text-gray-800 font-sans;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  @apply font-semibold text-gray-900;
+}
+
+a {
+  @apply text-brand hover:underline;
 }

@@ -10,12 +10,12 @@ function Home() {
       {user ? (
         <>
           <p className="mb-4">Добредојде, {user.name}!</p>
-          <Link
+          {/* <Link
             to="/profile"
             className="text-brand underline hover:text-yellow-500 transition"
           >
             Профил
-          </Link>
+          </Link> */}
         </>
       ) : (
         <>
