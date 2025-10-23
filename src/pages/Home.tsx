@@ -2,7 +2,13 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 function Home() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#fffdf8] text-center" />
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#fffdf8] text-center">

@@ -1,85 +1,46 @@
 // src/context/AuthContext.tsx
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
-import {
-  loginUser,
-  registerUser,
-  logoutUser,
-  getCurrentUser, // ✅ вратено за да може refreshUser
-} from "../services/authService";
-import { LoginData, RegisterData } from "../types/auth";
-import { User } from "../types/user";
+import { createContext, useContext, ReactNode } from "react";
+import { useUser, type ApiUser } from "../api/useUser";
+import { useLogin, useRegister, useLogout, type LoginData, type RegisterData } from "../api/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextType {
-  user: User | null;
+  user: ApiUser | null;
   loading: boolean;
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>; // ✅ додадено во типот
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // ✅ Единствена авто-логин проверка по refresh кон /api/auth/me
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/auth/me", {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        } else {
-          setUser(null);
-        }
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false); // ⬅️ овде го местиме loading
-      }
-    };
-    fetchUser();
-  }, []);
+  const queryClient = useQueryClient();
+  const { data: user, isLoading: loading } = useUser();
+  const loginMutation = useLogin();
+  const registerMutation = useRegister();
+  const logoutMutation = useLogout();
 
   const login = async (data: LoginData) => {
-    const res = await loginUser(data);
-    setUser(res.user);
+    await loginMutation.mutateAsync(data);
   };
 
   const register = async (data: RegisterData) => {
-    await registerUser(data);
-    // ❌ НЕ setUser овде — чекаме email verify и потоа login
+    await registerMutation.mutateAsync(data);
   };
 
   const logout = async () => {
-    await logoutUser();
-    setUser(null);
+    await logoutMutation.mutateAsync();
   };
 
-  // ✅ ново: рефрешни го user-от од backend (/api/auth/me или еквивалент во authService)
   const refreshUser = async () => {
-    try {
-      const res = await getCurrentUser(); // мора да праќа credentials: "include"
-      setUser(res.user);
-    } catch {
-      // ignore
-    }
+    await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, refreshUser }} // ✅ додадено refreshUser
+      value={{ user: user ?? null, loading, login, register, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

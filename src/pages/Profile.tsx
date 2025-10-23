@@ -4,38 +4,26 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardFooter,
-} from "../components/ui/card";
-import {
-  UserIcon,
-  MailIcon,
-  PhoneIcon,
-  ShieldIcon,
-  EditIcon,
-  XIcon,
-  CheckIcon,
-} from "lucide-react";
-import { updateProfile } from "../services/userService"; // ✅ ДОДАДЕНО
+import { Card, CardHeader, CardContent, CardFooter } from "../components/ui/card";
+import { UserIcon, MailIcon, PhoneIcon, ShieldIcon, EditIcon, XIcon, CheckIcon } from "lucide-react";
+import { useUpdateProfile } from "../api/useUpdateProfile";
 
 const profileSchema = z.object({
-  name: z.string().min(2, "Името мора да има најмалку 2 карактери"),
-  phone: z.string().min(6, "Внесете валиден телефонски број"),
+  name: z.string().min(2, "Името мора да има најмалку 2 знака"),
+  phone: z.string().min(6, "Телефонот мора да има најмалку 6 знаци"),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 export default function Profile() {
-  const { user, logout, refreshUser } = useAuth(); // ✅ ДОДАДЕНО refreshUser
+  const { user, logout, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const updateProfile = useUpdateProfile();
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting }, // ✅ земаме isSubmitting
+    formState: { errors, isSubmitting },
     reset,
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -45,22 +33,19 @@ export default function Profile() {
   if (!user)
     return (
       <div className="flex justify-center items-center h-[70vh] text-gray-600">
-        <p>Нема податоци за корисник.</p>
+        <p>Немате активна сесија.</p>
       </div>
     );
 
-  // ✅ Реално зачувување: PATCH /api/users/me → па refreshUser()
   const onSubmit = async (data: ProfileFormData) => {
     try {
-      await updateProfile({ name: data.name, phone: data.phone });
+      await updateProfile.mutateAsync({ name: data.name, phone: data.phone });
       await refreshUser();
       setIsEditing(false);
       reset(data);
-      // опционално: прикажи нотификација
-      // alert("Профилот е успешно ажуриран ✅");
     } catch (err: any) {
       console.error("Update profile error:", err);
-      alert(err?.message || "Не успеа ажурирањето");
+      alert(err?.message || "Настана грешка при ажурирање");
     }
   };
 
@@ -79,8 +64,7 @@ export default function Profile() {
               />
             </div>
             <h2 className="text-2xl font-bold text-amber-600 flex items-center gap-2 mt-1">
-              <UserIcon className="w-6 h-6 text-amber-500" />
-              Профил
+              <UserIcon className="w-6 h-6 text-amber-500" /> Профил
             </h2>
           </div>
         </CardHeader>
@@ -89,41 +73,21 @@ export default function Profile() {
           {!isEditing ? (
             <>
               <ProfileRow icon={<UserIcon />} label="Име" value={user.name} />
-              <ProfileRow
-                icon={<MailIcon />}
-                label="Е-пошта"
-                value={user.email}
-              />
-              <ProfileRow
-                icon={<PhoneIcon />}
-                label="Телефон"
-                value={user.phone || "—"}
-              />
-              <ProfileRow
-                icon={<ShieldIcon />}
-                label="Улога"
-                value={user.role || ""}
-              />
+              <ProfileRow icon={<MailIcon />} label="Е-пошта" value={user.email} />
+              <ProfileRow icon={<PhoneIcon />} label="Телефон" value={user.phone || "—"} />
+              <ProfileRow icon={<ShieldIcon />} label="Улога" value={user.role || ""} />
             </>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <InputField
-                label="Име"
-                error={errors.name?.message}
-                register={register("name")}
-              />
-              <InputField
-                label="Телефон"
-                error={errors.phone?.message}
-                register={register("phone")}
-              />
+              <InputField label="Име" error={errors.name?.message} register={register("name")} />
+              <InputField label="Телефон" error={errors.phone?.message} register={register("phone")} />
               <div className="flex justify-end gap-2">
                 <Button type="button" onClick={() => setIsEditing(false)}>
                   <XIcon className="w-4 h-4 mr-1" /> Откажи
                 </Button>
                 <Button type="submit" variant="default" disabled={isSubmitting}>
-                  <CheckIcon className="w-4 h-4 mr-1" />{" "}
-                  {isSubmitting ? "Снимам..." : "Зачувај"}
+                  <CheckIcon className="w-4 h-4 mr-1" />{` `}
+                  {isSubmitting ? "Се ажурира..." : "Зачувај"}
                 </Button>
               </div>
             </form>
@@ -154,10 +118,6 @@ export default function Profile() {
   );
 }
 
-/** ────────────────────────────────
- * Помошни компоненти
- ────────────────────────────────*/
-
 const ProfileRow = ({
   icon,
   label,
@@ -185,9 +145,7 @@ const InputField = ({
   register: any;
 }) => (
   <div>
-    <label className="block text-sm font-medium mb-1 text-gray-700">
-      {label}
-    </label>
+    <label className="block text-sm font-medium mb-1 text-gray-700">{label}</label>
     <input
       type="text"
       {...register}
@@ -196,3 +154,4 @@ const InputField = ({
     {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
   </div>
 );
+
