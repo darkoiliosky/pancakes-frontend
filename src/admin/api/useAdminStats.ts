@@ -19,5 +19,10 @@ async function fetchAdminStats(): Promise<AdminStats> {
 }
 
 export function useAdminStats() {
-  return useQuery({ queryKey: ["admin", "stats"], queryFn: fetchAdminStats });
+  return useQuery({
+    queryKey: ["admin", "stats"],
+    queryFn: fetchAdminStats,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
 }

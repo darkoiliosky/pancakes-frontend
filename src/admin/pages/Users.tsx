@@ -3,10 +3,11 @@ import {
   useAdminUsers,
   type AdminUser,
   useDeactivateUser,
+  useActivateUser,
   useInviteCourier,
 } from "../api/useAdminUsers";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,35 +18,83 @@ type InviteForm = z.infer<typeof inviteSchema>;
 export default function Users() {
   const { data = [], isLoading, error } = useAdminUsers();
   const deactivate = useDeactivateUser();
+  const activate = useActivateUser();
   const invite = useInviteCourier();
   const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "courier" | "customer">("all");
   const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [inviteOk, setInviteOk] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const filtered = useMemo(() => {
-    return data.filter((u) => (roleFilter === "all" ? true : u.role === roleFilter));
-  }, [data, roleFilter]);
+    const roleMatch = (u: AdminUser) => (roleFilter === "all" ? true : (u.role as string) === roleFilter);
+    const text = debounced.trim().toLowerCase();
+    const textMatch = (u: AdminUser) =>
+      !text || (u.name?.toLowerCase().includes(text) || u.email?.toLowerCase().includes(text));
+    return data.filter((u) => roleMatch(u) && textMatch(u));
+  }, [data, roleFilter, debounced]);
+
+  const roleChip = (role?: string) => {
+    const r = (role || "customer").toLowerCase();
+    const map: Record<string, { icon: string; cls: string; label: string }> = {
+      admin: { icon: "👑", cls: "text-purple-600", label: "admin" },
+      courier: { icon: "🚚", cls: "text-blue-600", label: "courier" },
+      customer: { icon: "👤", cls: "text-green-600", label: "customer" },
+    };
+    const d = map[r] || map.customer;
+    return (
+      <span className={`inline-flex items-center gap-1 ${d.cls}`}>
+        <span>{d.icon}</span>
+        <span className="capitalize">{d.label}</span>
+      </span>
+    );
+  };
+
+  const statusBadge = (inactive: boolean) => (
+    <span className="inline-flex items-center gap-1">
+      <span className={`inline-block w-2 h-2 rounded-full ${inactive ? "bg-red-500" : "bg-green-500"}`} />
+      <span className="text-sm">{inactive ? "Inactive" : "Active"}</span>
+    </span>
+  );
 
   const columns: ColumnDef<AdminUser>[] = useMemo(
     () => [
       { header: "ID", accessorKey: "id" },
       { header: "Name", accessorKey: "name" },
       { header: "Email", accessorKey: "email" },
-      { header: "Role", accessorKey: "role" },
+      { header: "Role", cell: ({ row }) => roleChip(row.original.role as string) },
+      { header: "Status", cell: ({ row }) => statusBadge(!!row.original.inactivated_at) },
       {
         header: "Actions",
-        cell: ({ row }) => (
-          <div className="flex gap-2">
-            <button
-              className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200"
-              onClick={() => deactivate.mutate(row.original.id)}
-            >
-              Deactivate
-            </button>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const inactive = !!row.original.inactivated_at;
+          const onToggle = async () => {
+            const ok = window.confirm(`${inactive ? "Activate" : "Deactivate"} this user?`);
+            if (!ok) return;
+            if (inactive) activate.mutate(row.original.id);
+            else deactivate.mutate(row.original.id);
+          };
+          return (
+            <div className="flex gap-2">
+              <button
+                title={inactive ? "Activate" : "Deactivate"}
+                className={`px-2 py-1 text-xs rounded ${
+                  inactive ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-red-100 text-red-700 hover:bg-red-200"
+                }`}
+                onClick={onToggle}
+              >
+                {inactive ? "Activate" : "Deactivate"}
+              </button>
+            </div>
+          );
+        },
       },
     ],
-    [deactivate]
+    [activate, deactivate]
   );
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<InviteForm>({
@@ -56,7 +105,8 @@ export default function Users() {
     try {
       await invite.mutateAsync(data);
       reset();
-      alert("Invitation sent (if supported by backend)");
+      setInviteOk(true);
+      setTimeout(() => setInviteOk(false), 2000);
     } catch (e: any) {
       alert(e?.message || "Failed to invite");
     }
@@ -69,11 +119,12 @@ export default function Users() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-amber-700">Users</h1>
-        <form onSubmit={handleSubmit(onInvite)} className="flex items-center gap-2">
+        <form onSubmit={handleSubmit(onInvite)} className="relative flex items-center gap-2 p-2 border rounded-xl bg-white shadow-sm">
+          <span className="absolute left-3 text-gray-500">✉️</span>
           <input
             type="email"
             placeholder="Invite courier by email"
-            className="border rounded px-3 py-2"
+            className="border rounded px-3 py-2 pl-8"
             {...register("email")}
           />
           <button
@@ -83,21 +134,21 @@ export default function Users() {
           >
             Invite
           </button>
+          {inviteOk && <span className="text-green-600 text-sm ml-2">Invitation sent!</span>}
         </form>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded border overflow-hidden">
-          {(["all", "admin", "courier", "customer"] as const).map((r) => (
-            <button
-              key={r}
-              className={`px-3 py-1 text-sm ${roleFilter === r ? "bg-amber-500 text-white" : "bg-white"}`}
-              onClick={() => setRoleFilter(r)}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+        <select
+          className="border rounded px-3 py-2"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as any)}
+        >
+          <option value="all">All roles</option>
+          <option value="admin">👑 admin</option>
+          <option value="courier">🚚 courier</option>
+          <option value="customer">👤 customer</option>
+        </select>
         <input
           type="text"
           placeholder="Search name/email"

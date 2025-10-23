@@ -7,7 +7,7 @@ export const adminUserSchema = z.object({
   name: z.string(),
   email: z.string(),
   role: z.enum(["admin", "courier", "customer"]).or(z.string()),
-  is_active: z.boolean().optional(),
+  inactivated_at: z.string().nullable().optional(),
   created_at: z.string().optional(),
 });
 
@@ -32,6 +32,19 @@ export function useDeactivateUser() {
   return useMutation({
     mutationFn: async (id: number) => {
       const res = await apiClient.patch(`/api/admin/users/${id}/deactivate`);
+      return messageSchema.parse(res.data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+  });
+}
+
+export function useActivateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiClient.patch(`/api/admin/users/${id}/activate`);
       return messageSchema.parse(res.data);
     },
     onSuccess: () => {

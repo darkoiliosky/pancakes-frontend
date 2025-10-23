@@ -25,13 +25,13 @@ export default function DataTable<T>({ columns, data, globalFilter }: Props<T>) 
     getFilteredRowModel: getFilteredRowModel(),
   });
   return (
-    <div className="overflow-x-auto border rounded-xl bg-white">
+    <div className="overflow-x-auto border rounded-xl bg-white shadow-sm">
       <table className="min-w-full text-sm">
-        <thead className="bg-amber-50 text-amber-900">
+        <thead className="bg-[#f8f8f8] text-gray-900">
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
               {hg.headers.map((header) => (
-                <th key={header.id} className="px-3 py-2 text-left font-semibold select-none">
+                <th key={header.id} className="px-3 py-2 text-left font-semibold select-none first:rounded-l-lg last:rounded-r-lg">
                   <div
                     className={header.column.getCanSort() ? "cursor-pointer" : ""}
                     onClick={header.column.getToggleSortingHandler()}
@@ -48,7 +48,7 @@ export default function DataTable<T>({ columns, data, globalFilter }: Props<T>) 
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="even:bg-amber-50/20">
+            <tr key={row.id} className="even:bg-amber-50/20 hover:bg-amber-50 transition-colors">
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="px-3 py-2">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
