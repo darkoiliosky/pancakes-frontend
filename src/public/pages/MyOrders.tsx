@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMyOrders } from "../api/useMyOrders";
 import { useShop } from "../api/useShop";
 import usePageTitle from "../../hooks/usePageTitle";
+import formatCurrency from "../../utils/formatCurrency";
 
 function formatDate(iso?: string) {
   if (!iso) return "";
@@ -13,7 +14,7 @@ export default function MyOrders() {
   const { data = [], isLoading, isError, refetch } = useMyOrders();
   const { data: shop } = useShop();
   usePageTitle(`${shop?.name || "Pancakes Shop"} — My Orders`);
-  const currency = shop?.currency || "$";
+  const currency = shop?.currency || "";
   const [openId, setOpenId] = useState<number | null>(null);
   const openOrder = useMemo(() => data.find((o) => o.id === openId), [data, openId]);
 
@@ -50,7 +51,7 @@ export default function MyOrders() {
                     <span className="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200">{o.status}</span>
                   </td>
                   <td className="px-4 py-2">{formatDate(o.created_at)}</td>
-                  <td className="px-4 py-2 text-right font-semibold">{currency}{(o.total_price || 0).toFixed(2)}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{formatCurrency(o.total_price || 0, currency)}</td>
                   <td className="px-4 py-2 text-right">{o.items_count}</td>
                   <td className="px-4 py-2 text-right">
                     <button className="underline text-amber-700" onClick={() => setOpenId(o.id)}>Details</button>

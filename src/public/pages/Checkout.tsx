@@ -5,6 +5,7 @@ import { useShop } from "../api/useShop";
 import { usePlaceOrder } from "../api/usePlaceOrder";
 import { useToast } from "../../context/ToastContext";
 import usePageTitle from "../../hooks/usePageTitle";
+import formatCurrency from "../../utils/formatCurrency";
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function Checkout() {
   const placeOrder = usePlaceOrder();
   usePageTitle(`${shop?.name || "Pancakes Shop"} — Checkout`);
 
-  const currency = shop?.currency || "$";
+  const currency = shop?.currency || "";
   const minOrder = Number(shop?.min_order || 0);
   const deliveryFee = Number(shop?.delivery_fee || 0);
   const total = subtotal + deliveryFee;
@@ -49,15 +50,15 @@ export default function Checkout() {
           <div className="rounded-xl border bg-white p-4 text-sm space-y-2">
             <div className="flex items-center justify-between">
               <span>Subtotal</span>
-              <span>{currency}{subtotal.toFixed(2)}</span>
+              <span>{formatCurrency(subtotal, currency)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Delivery Fee</span>
-              <span>{currency}{deliveryFee.toFixed(2)}</span>
+              <span>{formatCurrency(deliveryFee, currency)}</span>
             </div>
             <div className="flex items-center justify-between font-semibold border-t pt-2">
               <span>Total</span>
-              <span>{currency}{total.toFixed(2)}</span>
+              <span>{formatCurrency(total, currency)}</span>
             </div>
             {minOrder > 0 && subtotal < minOrder && (
               <div className="text-xs text-red-600">Minimum order is {currency}{minOrder.toFixed(2)}</div>

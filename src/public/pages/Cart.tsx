@@ -1,15 +1,15 @@
-import { Link } from "react-router-dom";
+﻿import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useShop } from "../api/useShop";
-import { useNavigate } from "react-router-dom";
 import usePageTitle from "../../hooks/usePageTitle";
+import formatCurrency from "../../utils/formatCurrency";
 
 export default function Cart() {
   const navigate = useNavigate();
   const { items, subtotal, setQty, remove } = useCart();
   const { data: shop } = useShop();
   usePageTitle(`${shop?.name || "Pancakes Shop"} — Cart`);
-  const currency = shop?.currency || "$";
+  const currency = shop?.currency || "";
   const minOrder = Number(shop?.min_order || 0);
   const canCheckout = items.length > 0 && subtotal >= minOrder;
   return (
@@ -31,7 +31,7 @@ export default function Cart() {
                 <li key={it.item_id} className="py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium truncate max-w-[260px]">{it.name}</div>
-                    <div className="text-sm text-gray-600">{currency}{it.price.toFixed(2)} each</div>
+                    <div className="text-sm text-gray-600">{formatCurrency(it.price, currency)} each</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button className="px-2 py-1 border rounded" onClick={() => setQty(it.item_id, it.quantity - 1)}>-</button>
@@ -57,16 +57,16 @@ export default function Cart() {
                       Remove
                     </button>
                   </div>
-                  <div className="font-semibold w-24 text-right">{currency}{(it.price * it.quantity).toFixed(2)}</div>
+                  <div className="font-semibold w-24 text-right">{formatCurrency(it.price * it.quantity, currency)}</div>
                 </li>
               ))}
             </ul>
             <div className="flex items-center justify-between mt-4">
               <div className="text-gray-600">Subtotal</div>
-              <div className="text-lg font-semibold">{currency}{subtotal.toFixed(2)}</div>
+              <div className="text-lg font-semibold">{formatCurrency(subtotal, currency)}</div>
             </div>
             {minOrder > 0 && subtotal < minOrder && (
-              <div className="text-xs text-red-600 mt-2">Minimum order is {currency}{minOrder.toFixed(2)}</div>
+              <div className="text-xs text-red-600 mt-2">Minimum order is {formatCurrency(minOrder, currency)}</div>
             )}
             <div className="text-right mt-4">
               <button

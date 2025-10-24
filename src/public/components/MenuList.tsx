@@ -4,6 +4,9 @@ import { useCart } from "../context/CartContext";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { useShop } from "../api/useShop";
+import { useAuth } from "../../context/AuthContext";
+import { Link } from "react-router-dom";
+import formatCurrency from "../../utils/formatCurrency";
 
 type Filters = { q?: string; category?: string; available?: boolean };
 
@@ -12,6 +15,10 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
   const [qty, setQty] = useState<Record<number, number>>({});
   const { data: shop } = useShop();
   const currency = shop?.currency || "";
+  const { user } = useAuth();
+  const role = (user?.role || "").toLowerCase();
+  const isCustomer = role === "customer";
+  const isAdmin = role === "admin";
 
   if (isLoading) {
     return (
@@ -56,12 +63,15 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
   return (
     <div className="space-y-8">
       {orderedGroups.map(([group, items]) => (
-        <section key={group}>
-          <div className="flex items-center gap-3 mb-3">
-            <h2 className="text-xl font-semibold text-amber-800">{group}</h2>
-            <div className="flex-1 h-px bg-gradient-to-r from-amber-200 to-transparent" />
+        <section key={group} id={`cat-${group.replace(/\s+/g, "-").toLowerCase()}`}>
+          <div className="sticky top-20 z-10">
+            <div className="flex items-center gap-3 mb-3 bg-white/90 backdrop-blur rounded-xl px-3 py-2 shadow-sm border border-amber-100">
+              <h2 className="text-lg md:text-xl font-semibold text-amber-800 tracking-tight">{group}</h2>
+              <span className="text-xs text-amber-700">· {items.length}</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-amber-200 to-transparent ml-2" />
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-7">
             {items.map((item) => (
               <div key={item.id} className="group">
                 <Card className="overflow-hidden rounded-2xl border border-amber-100 bg-white/90 backdrop-blur-sm shadow-sm transition transform duration-200 group-hover:shadow-md group-hover:-translate-y-0.5">
@@ -82,7 +92,9 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                         <div className="text-lg font-semibold text-amber-900">{item.name}</div>
                         {item.description && <p className="text-sm text-gray-600 mt-1 max-w-prose">{item.description}</p>}
                       </div>
-                      <div className="ml-4 text-amber-700 font-semibold whitespace-nowrap">{currency}{item.price.toFixed(2)}</div>
+                      <div className="ml-4 text-amber-700 font-semibold whitespace-nowrap">
+                        {formatCurrency(item.price, currency)}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -98,13 +110,22 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                         onChange={(e) => setQ(item.id, Number(e.target.value))}
                         className="w-20 border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300"
                       />
-                      <Button
-                        onClick={() => add({ item_id: item.id, name: item.name, price: item.price, quantity: qty[item.id] ?? 1 })}
-                        disabled={item.available === false}
-                        className="shadow-sm hover:shadow ring-1 ring-amber-300/30"
-                      >
-                        {item.available === false ? "Unavailable" : "Add to Cart"}
-                      </Button>
+                      {isCustomer ? (
+                        <Button
+                          onClick={() => add({ item_id: item.id, name: item.name, price: item.price, quantity: qty[item.id] ?? 1 })}
+                          disabled={item.available === false}
+                          className="shadow-sm hover:shadow ring-1 ring-amber-300/30"
+                          aria-live="polite"
+                        >
+                          {item.available === false ? "Unavailable" : "Add to Cart"}
+                        </Button>
+                      ) : isAdmin ? (
+                        <Link to={`/admin/menu-items?edit=${item.id}`} className="inline-flex">
+                          <Button className="shadow-sm hover:shadow ring-1 ring-amber-300/30">Edit menu</Button>
+                        </Link>
+                      ) : (
+                        <Button disabled className="opacity-70">Customers only</Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

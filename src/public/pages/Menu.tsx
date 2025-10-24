@@ -30,14 +30,7 @@ export default function Menu() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-amber-700 flex items-center gap-3">
-          <span>Menu</span>
-          {shop?.currency && (
-            <span className="text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-              {shop.currency}
-            </span>
-          )}
-        </h1>
+        <h1 className="text-2xl font-bold text-amber-700">Menu</h1>
         <Link to="/cart" className="underline text-amber-700">Cart ({count})</Link>
       </div>
 
@@ -63,32 +56,45 @@ export default function Menu() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
-                <input
-                  placeholder="Search name/description"
-                  className="border rounded px-3 py-2 w-full"
-                  aria-label="Search menu"
-                  defaultValue={qParam}
-                  onChange={(e) => setParam("q", e.target.value)}
-                />
-                <select
-                  className="border rounded px-3 py-2 w-full"
-                  aria-label="Filter category"
-                  value={catParam}
-                  onChange={(e) => setParam("category", e.target.value)}
-                >
-                  <option value="">All categories</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-amber-600">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  </div>
+                  <input
+                    placeholder="Search name/description"
+                    className="border rounded px-9 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    aria-label="Search menu"
+                    defaultValue={qParam}
+                    onChange={(e) => setParam("q", e.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-amber-600">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M8 12h8"></path><path d="M10 18h4"></path></svg>
+                  </div>
+                  <select
+                    className="border rounded px-9 py-2 w-full focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    aria-label="Filter category"
+                    value={catParam}
+                    onChange={(e) => setParam("category", e.target.value)}
+                  >
+                    <option value="">All categories</option>
+                    {categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-700">Available only</span>
+                  <span className="text-sm text-gray-700 flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Available only
+                  </span>
                   <Switch
                     checked={available === true}
                     onCheckedChange={(v) => setParam("available", v ? "true" : undefined)}
                   />
                 </div>
-                <button className="px-3 py-2 border rounded" onClick={() => setParams(new URLSearchParams(), { replace: true })}>Clear</button>
+                <button className="px-3 py-2 border rounded hover:bg-amber-50" onClick={() => setParams(new URLSearchParams(), { replace: true })}>Clear</button>
               </div>
               {/* Quick categories under search */}
               {categories.length > 0 && (
@@ -96,16 +102,24 @@ export default function Menu() {
                   <div className="text-xs text-gray-600 mb-1">Quick categories</div>
                   <div className="flex flex-wrap gap-2">
                     <button
-                      className={`px-3 py-1 rounded-full border ${!catParam ? "bg-amber-500 text-white border-amber-500" : "bg-white text-amber-700 border-amber-300"}`}
-                      onClick={() => setParam("category", undefined)}
+                      className={`px-3 py-1 rounded-full border transition transform hover:scale-[1.02] ${!catParam ? "bg-amber-500 text-white border-amber-500 ring-1 ring-amber-300/40" : "bg-white text-amber-700 border-amber-300 hover:ring-amber-300/40 hover:ring-1"}`}
+                      onClick={() => {
+                        setParam("category", undefined);
+                        const el = document.getElementById("cat-__top");
+                        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
                     >
                       All
                     </button>
                     {categories.map((c) => (
                       <button
                         key={c}
-                        className={`px-3 py-1 rounded-full border ${catParam === c ? "bg-amber-500 text-white border-amber-500" : "bg-white text-amber-700 border-amber-300"}`}
-                        onClick={() => setParam("category", c)}
+                        className={`px-3 py-1 rounded-full border transition transform hover:scale-[1.02] ${catParam === c ? "bg-amber-500 text-white border-amber-500 ring-1 ring-amber-300/40" : "bg-white text-amber-700 border-amber-300 hover:ring-amber-300/40 hover:ring-1"}`}
+                        onClick={() => {
+                          setParam("category", c);
+                          const el = document.getElementById(`cat-${c.replace(/\s+/g, "-").toLowerCase()}`);
+                          el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
                       >
                         {c}
                       </button>
@@ -118,6 +132,7 @@ export default function Menu() {
         </div>
       </div>
 
+      <div id="cat-__top" />
       <MenuList
         items={items}
         isLoading={isLoading}

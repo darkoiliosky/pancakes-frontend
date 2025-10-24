@@ -7,7 +7,8 @@ import {
 } from "../api/useAdminMenuItems";
 import DataTable from "../components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,12 +31,14 @@ export default function MenuItems() {
   const updateM = useUpdateMenuItem();
   const deleteM = useDeleteMenuItem();
   const [editing, setEditing] = useState<AdminMenuItem | null>(null);
+  const [params] = useSearchParams();
+  const formRef = useRef<HTMLDivElement | null>(null);
 
   const columns: ColumnDef<AdminMenuItem>[] = useMemo(() => [
     { header: "ID", accessorKey: "id" },
     { header: "Name", accessorKey: "name" },
     { header: "Category", accessorKey: "category" },
-    { header: "Price", cell: ({ row }) => `$${row.original.price.toFixed(2)}` },
+    { header: "Price", cell: ({ row }) => `${row.original.price.toFixed(2)}` },
     {
       header: "Actions",
       cell: ({ row }) => (
@@ -71,7 +74,20 @@ export default function MenuItems() {
     setValue("price", i.price);
     setValue("category", i.category || "");
     setValue("image", i.image_url || "");
+    // focus form and scroll into view
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
   };
+
+  // Deep-link edit: /admin/menu-items?edit=<id>
+  useEffect(() => {
+    if (!items || items.length === 0) return;
+    const eid = Number(params.get("edit"));
+    if (!eid || Number.isNaN(eid)) return;
+    const found = items.find((it) => it.id === eid);
+    if (found) startEdit(found);
+  }, [items, params]);
 
   return (
     <div className="space-y-6">
@@ -97,7 +113,7 @@ export default function MenuItems() {
       ) : (
         <>
           <DataTable columns={columns} data={items} />
-          <div className="mt-6 p-4 border rounded-xl bg-white max-w-xl">
+          <div ref={formRef} className="mt-6 p-4 border rounded-xl bg-white max-w-xl">
             <h2 className="font-semibold mb-3">{editing ? "Edit Item" : "Create Item"}</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
               <div>

@@ -20,6 +20,7 @@ import ShopSettings from "./admin/pages/ShopSettings";
 import MenuItems from "./admin/pages/MenuItems";
 import Orders from "./admin/pages/Orders";
 import Deliveries from "./admin/pages/Deliveries";
+import MyDeliveries from "./courier/pages/MyDeliveries";
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -32,6 +33,22 @@ function AdminRoute({ children }: { children: ReactNode }) {
   if (loading) return <p className="text-center mt-10">Loading...</p>;
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "admin") return <Navigate to="/" />;
+  return <>{children}</>;
+}
+
+function CustomerRoute({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <p className="text-center mt-10">Loading...</p>;
+  if (!user) return <Navigate to="/login" />;
+  if ((user.role || "").toLowerCase() !== "customer") return <Navigate to="/" />;
+  return <>{children}</>;
+}
+
+function CourierRoute({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <p className="text-center mt-10">Loading...</p>;
+  if (!user) return <Navigate to="/login" />;
+  if ((user.role || "").toLowerCase() !== "courier") return <Navigate to="/" />;
   return <>{children}</>;
 }
 
@@ -48,17 +65,25 @@ function App() {
             <Route
               path="/checkout"
               element={
-                <PrivateRoute>
+                <CustomerRoute>
                   <PublicCheckout />
-                </PrivateRoute>
+                </CustomerRoute>
               }
             />
             <Route
               path="/orders"
               element={
-                <PrivateRoute>
+                <CustomerRoute>
                   <PublicMyOrders />
-                </PrivateRoute>
+                </CustomerRoute>
+              }
+            />
+            <Route
+              path="/courier"
+              element={
+                <CourierRoute>
+                  <MyDeliveries />
+                </CourierRoute>
               }
             />
             <Route path="/login" element={<Login />} />

@@ -1,10 +1,11 @@
 import { useCart } from "../context/CartContext";
 import { useShop } from "../api/useShop";
+import formatCurrency from "../../utils/formatCurrency";
 
 export default function OrderSummary() {
   const { items, subtotal } = useCart();
   const { data: shop } = useShop();
-  const currency = shop?.currency || "$";
+  const currency = shop?.currency || "";
   return (
     <div className="rounded-xl border bg-white p-4 text-sm">
       <div className="font-semibold mb-2">Order Summary</div>
@@ -14,13 +15,13 @@ export default function OrderSummary() {
             <span>
               {it.name} × {it.quantity}
             </span>
-            <span>{currency}{(it.price * it.quantity).toFixed(2)}</span>
+            <span>{formatCurrency(it.price * it.quantity, currency)}</span>
           </li>
         ))}
       </ul>
       <div className="flex items-center justify-between mt-2 font-semibold">
         <span>Subtotal</span>
-        <span>{currency}{subtotal.toFixed(2)}</span>
+        <span>{formatCurrency(subtotal, currency)}</span>
       </div>
     </div>
   );
