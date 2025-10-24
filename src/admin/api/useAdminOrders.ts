@@ -17,6 +17,7 @@ const orderSchema = z.object({
   status: z.string(),
   created_at: z.string(),
   total_price: z.number().optional(),
+  items_count: z.number().optional(),
   items: z.array(orderItemSchema).optional(),
   courier: z
     .object({ id: z.number(), name: z.string().optional(), email: z.string().optional() })

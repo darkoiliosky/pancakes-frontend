@@ -3,6 +3,7 @@ import { useAdminDeliveries, type AdminDelivery, useCreateDelivery, useUpdateDel
 import DataTable from "../components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { useAdminUsers } from "../api/useAdminUsers";
+import { useToast } from "../../context/ToastContext";
 
 function StatusBadge({ s }: { s: string }) {
   const c = (s: string) =>
@@ -20,7 +21,7 @@ function StatusBadge({ s }: { s: string }) {
 
 export default function Deliveries() {
   const [status, setStatus] = useState<string>("");
-  const [toast, setToast] = useState<string>("");
+  const toast = useToast();
   const query = useAdminDeliveries({ status });
   const isLoading = query.isLoading;
   const error = (query.error as Error) || null;
@@ -34,6 +35,7 @@ export default function Deliveries() {
 
   const [assignForOrder, setAssignForOrder] = useState<number | null>(null);
   const [selectedCourier, setSelectedCourier] = useState<number | "">("");
+  const statuses = ["pending", "accepted", "delivering", "delivered"] as const;
 
   const columns: ColumnDef<AdminDelivery>[] = [
     { header: "ID", accessorKey: "id" },
@@ -45,39 +47,61 @@ export default function Deliveries() {
       header: "Actions",
       cell: ({ row }) => {
         const d = row.original;
-        const locked = d.status.toLowerCase() === "delivered";
+        const st = (d.status || "").toLowerCase();
+        const locked = st === "delivered";
+        const currentIdx = Math.max(0, statuses.indexOf(st as any));
         return (
           <div className="flex items-center gap-2">
             {d.courier?.name ? (
               <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1">Courier: {d.courier.name}</span>
             ) : (
-              <button
-                className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
-                onClick={() => setAssignForOrder(d.order_id)}
-                disabled={locked}
-                title={locked ? "Already delivered" : "Assign courier"}
-              >
-                Assign courier
-              </button>
+              !locked && (
+                <button
+                  className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+                  onClick={() => setAssignForOrder(d.order_id)}
+                  disabled={createDelivery.isPending}
+                  title="Assign courier"
+                >
+                  Assign courier
+                </button>
+              )
             )}
-            {!locked && d.status.toLowerCase() !== "delivered" && (
-              <button
-                className="px-2 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200"
-                onClick={async () => {
-                  try {
-                    await updateDelivery.mutateAsync({ id: d.id, status: "delivered", delivered_at: new Date().toISOString() });
-                    setToast("Delivery marked as delivered");
-                    setTimeout(() => setToast(""), 1500);
-                  } catch (e: any) {
-                    const msg = e?.response?.data?.error || e?.message || "Failed";
-                    setToast(msg);
-                    setTimeout(() => setToast(""), 2000);
-                  }
-                }}
-              >
-                Mark delivered
-              </button>
-            )}
+            {/* Status transition dropdown */}
+            <select
+              className="border rounded px-2 py-1 text-xs disabled:opacity-50"
+              value={st}
+              onChange={async (e) => {
+                const target = (e.target.value || "").toLowerCase();
+                if (target === st) return;
+                // Only allow next-in-sequence transition
+                const targetIdx = statuses.indexOf(target as any);
+                if (targetIdx !== currentIdx + 1) return;
+                try {
+                  const payload: { id: number; status: string; delivered_at?: string } = { id: d.id, status: target };
+                  if (target === "delivered") payload.delivered_at = new Date().toISOString();
+                  await updateDelivery.mutateAsync(payload);
+                  toast.success(`Status updated to ${target}`);
+                } catch (err: any) {
+                  const msg = err?.response?.data?.error || err?.message || "Failed to update status";
+                  toast.error(msg);
+                }
+              }}
+              disabled={locked || updateDelivery.isPending}
+              title={locked ? "Delivery completed" : "Update status"}
+              aria-label="Change delivery status"
+            >
+              {statuses.map((s) => {
+                const idx = statuses.indexOf(s as any);
+                const isBackward = idx < currentIdx;
+                const isSkipForward = idx > currentIdx + 1;
+                const disabled = isBackward || isSkipForward;
+                return (
+                  <option key={s} value={s} disabled={disabled}>
+                    {s}
+                  </option>
+                );
+              })}
+            </select>
           </div>
         );
       },
@@ -98,11 +122,9 @@ export default function Deliveries() {
           <option>Delivering</option>
           <option>Delivered</option>
         </select>
-        <button className="px-3 py-1 border rounded" onClick={() => window.location.reload()}>Refresh</button>
+        <button className="px-3 py-1 border rounded" onClick={() => query.refetch()}>Refresh</button>
       </div>
-      {toast && (
-        <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">{toast}</div>
-      )}
+      {/* Toasts are globally rendered by ToastProvider */}
       {isLoading ? (
         <div>Loading...</div>
       ) : error ? (
@@ -140,14 +162,12 @@ export default function Deliveries() {
                   onClick={async () => {
                     try {
                       await createDelivery.mutateAsync({ order_id: assignForOrder!, courier_id: Number(selectedCourier) });
-                      setToast("Courier assigned");
+                      toast.success("Courier assigned");
                       setAssignForOrder(null);
                       setSelectedCourier("");
-                      setTimeout(() => setToast(""), 1500);
                     } catch (e: any) {
                       const msg = e?.response?.data?.error || e?.message || "Failed";
-                      setToast(msg);
-                      setTimeout(() => setToast(""), 2000);
+                      toast.error(msg);
                     }
                   }}
                 >

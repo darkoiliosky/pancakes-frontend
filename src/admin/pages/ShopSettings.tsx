@@ -1,11 +1,12 @@
 import { useAdminShop, useUpdateShop } from "../api/useAdminShop";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Switch } from "../../components/ui/switch";
 
 const schema = z.object({
   name: z.string().min(1, "Required"),
@@ -32,6 +33,7 @@ export default function ShopSettings() {
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
@@ -188,30 +190,52 @@ export default function ShopSettings() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex items-center gap-3">
-                <input
-                  id="is_open"
-                  type="checkbox"
-                  className="h-4 w-4"
-                  {...register("is_open")}
+              <div className="flex items-center justify-between md:justify-start gap-3">
+                <Controller
+                  name="is_open"
+                  control={control}
+                  render={({ field }) => (
+                    <>
+                      <label
+                        htmlFor="is_open"
+                        className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+                        onClick={() => field.onChange(!field.value)}
+                      >
+                        Open
+                      </label>
+                      <Switch
+                        id="is_open"
+                        checked={!!field.value}
+                        onCheckedChange={(v) => field.onChange(v)}
+                      />
+                    </>
+                  )}
                 />
-                <label htmlFor="is_open" className="text-sm text-gray-700">
-                  Open
-                </label>
               </div>
-              <div className="flex items-center gap-3">
-                <input
-                  id="pickup_only"
-                  type="checkbox"
-                  className="h-4 w-4"
-                  {...register("pickup_only")}
+              <div className="flex items-center justify-between md:justify-start gap-3">
+                <Controller
+                  name="pickup_only"
+                  control={control}
+                  render={({ field }) => (
+                    <>
+                      <label
+                        htmlFor="pickup_only"
+                        className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+                        onClick={() => field.onChange(!field.value)}
+                      >
+                        Pickup only
+                      </label>
+                      <Switch
+                        id="pickup_only"
+                        checked={!!field.value}
+                        onCheckedChange={(v) => field.onChange(v)}
+                      />
+                    </>
+                  )}
                 />
-                <label htmlFor="pickup_only" className="text-sm text-gray-700">
-                  Pickup only
-                </label>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Working Hours
                 </label>
                 <input
@@ -220,7 +244,7 @@ export default function ShopSettings() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Working hours (JSON)
                 </label>
                 <textarea
@@ -230,7 +254,7 @@ export default function ShopSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Closed until
                 </label>
                 <input
@@ -253,7 +277,7 @@ export default function ShopSettings() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Min. Order
                 </label>
                 <input
@@ -264,7 +288,7 @@ export default function ShopSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Delivery Fee
                 </label>
                 <input
@@ -275,7 +299,7 @@ export default function ShopSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tax rate (%)
                 </label>
                 <input
@@ -286,7 +310,7 @@ export default function ShopSettings() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Currency
                 </label>
                 <input
@@ -309,7 +333,7 @@ export default function ShopSettings() {
           <CardContent>
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Maintenance message
                 </label>
                 <textarea

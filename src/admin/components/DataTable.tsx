@@ -4,18 +4,20 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   useReactTable,
-  ColumnDef,
-  SortingState,
+  type ColumnDef,
+  type Table,
 } from "@tanstack/react-table";
+import { useEffect } from "react";
 
-type Props<T> = {
-  columns: ColumnDef<T, any>[];
+type Props<T extends object> = {
+  columns: ColumnDef<T, unknown>[];
   data: T[];
   globalFilter?: string;
   onGlobalFilterChange?: (v: string) => void;
+  onTableReady?: (table: Table<T>) => void;
 };
 
-export default function DataTable<T>({ columns, data, globalFilter }: Props<T>) {
+export default function DataTable<T extends object>({ columns, data, globalFilter, onTableReady }: Props<T>) {
   const table = useReactTable({
     columns,
     data,
@@ -24,6 +26,10 @@ export default function DataTable<T>({ columns, data, globalFilter }: Props<T>) 
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+
+  useEffect(() => {
+    onTableReady?.(table);
+  }, [table, onTableReady]);
   return (
     <div className="overflow-x-auto border rounded-xl bg-white shadow-sm">
       <table className="min-w-full text-sm">

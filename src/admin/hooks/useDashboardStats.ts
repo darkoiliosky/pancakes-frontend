@@ -19,7 +19,7 @@ export function useDashboardStats() {
   // last 7 days orders
   const from7 = isoDate(-6); // include today
   const to0 = isoDate(0);
-  const orders7 = useAdminOrders({ from: from7, to: to0 });
+  const orders7 = useAdminOrders({ from: from7, to: to0, status: "delivered" });
 
   // pending orders count
   const pendingOrders = useAdminOrders({ status: "pending" });
@@ -43,7 +43,10 @@ export function useDashboardStats() {
       if (!byDay.has(key)) byDay.set(key, { count: 0, income: 0 });
       const entry = byDay.get(key)!;
       entry.count += 1;
-      const income = (o.items || []).reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 0), 0);
+      // Prefer total_price if provided by API; fallback to items sum
+      const income = typeof o.total_price === "number" && !isNaN(o.total_price)
+        ? Number(o.total_price)
+        : (o.items || []).reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 0), 0);
       entry.income += income;
     });
     const series = Array.from(byDay.entries())

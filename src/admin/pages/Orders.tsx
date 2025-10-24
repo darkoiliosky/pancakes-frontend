@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAdminOrders, type AdminOrder, useUpdateOrderStatus } from "../api/useAdminOrders";
 import { useAdminShop } from "../api/useAdminShop";
 import DataTable from "../components/DataTable";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, type Table, type SortingState } from "@tanstack/react-table";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../../context/ToastContext";
+import apiClient from "../../api/client";
 
 const statuses = ["pending", "accepted", "preparing", "ready", "delivering", "delivered", "cancelled"] as const;
 
@@ -50,7 +52,7 @@ export default function Orders() {
   const [to, setTo] = useState<string>("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [toast, setToast] = useState<string>("");
+  const toast = useToast();
   const { data = [], isLoading, error, dataUpdatedAt } = useAdminOrders({ status, user: debounced, from, to });
   const updateStatus = useUpdateOrderStatus();
   const shop = useAdminShop();
@@ -64,9 +66,136 @@ export default function Orders() {
   const total = data.length;
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const pageData = useMemo(() => data.slice((page - 1) * pageSize, page * pageSize), [data, page, pageSize]);
+  const tableRef = useRef<Table<AdminOrder> | null>(null);
+
+  function copyId(id: number) {
+    try {
+      navigator.clipboard.writeText(String(id));
+      toast.success("Copied");
+    } catch (e) {
+      toast.error("Copy failed");
+    }
+  }
+
+  const [loadingItemsId, setLoadingItemsId] = useState<number | null>(null);
+  async function openWithItems(order: AdminOrder) {
+    try {
+      setLoadingItemsId(order.id);
+      const res = await apiClient.get(`/api/admin/orders/${order.id}/items`);
+      const items = Array.isArray(res.data?.items) ? res.data.items : [];
+      // Update cache so count and modal reflect latest items
+      const prev = qc.getQueriesData<AdminOrder[]>({ queryKey: ["admin", "orders"] });
+      prev.forEach(([key, rows]) => {
+        if (Array.isArray(rows)) {
+          const next = rows.map((o) => (o.id === order.id ? { ...o, items, items_count: items.length } : o));
+          qc.setQueryData(key, next as AdminOrder[]);
+        }
+      });
+      setOpen({ ...order, items });
+    } catch (e) {
+      const msg = (e as any)?.response?.data?.error || (e as Error).message || "Failed to load items";
+      toast.error(msg);
+      setOpen(order);
+    } finally {
+      setLoadingItemsId(null);
+    }
+  }
+
+  function getTotal(o: AdminOrder): number {
+    return typeof o.total_price === "number" && !isNaN(o.total_price)
+      ? o.total_price
+      : (o.items || []).reduce((s: number, it: any) => s + it.price * it.quantity, 0);
+  }
+
+  function exportCsv() {
+    try {
+      const table = tableRef.current;
+      const sorting = (table?.getState?.().sorting as SortingState) || [];
+      // Sort full filtered dataset using current table sort
+      const sortedAll = [...data].sort((a, b) => {
+        for (const s of sorting) {
+          const { id, desc } = s;
+          let av: unknown;
+          let bv: unknown;
+          switch (id) {
+            case "id":
+              av = a.id; bv = b.id; break;
+            case "created_at":
+              av = Date.parse(String(a.created_at || 0));
+              bv = Date.parse(String(b.created_at || 0));
+              break;
+            case "status":
+              av = String(a.status || "").toLowerCase();
+              bv = String(b.status || "").toLowerCase();
+              break;
+            case "total": {
+              const at = getTotal(a);
+              const bt = getTotal(b);
+              av = at; bv = bt; break;
+            }
+            default:
+              av = (a as Record<string, unknown>)[id];
+              bv = (b as Record<string, unknown>)[id];
+          }
+          if (av === bv) continue;
+          const cmp = (av as any) > (bv as any) ? 1 : (av as any) < (bv as any) ? -1 : 0;
+          return desc ? -cmp : cmp;
+        }
+        return 0;
+      });
+      const safeRows = sortedAll as AdminOrder[];
+      const header = ["id", "customer_name", "customer_email", "status", "created_at", "total"];
+      const lines = [header.join(",")];
+      for (const o of safeRows) {
+        const total = getTotal(o);
+        const rec = [
+          o.id,
+          (o.user?.name || ""),
+          (o.user?.email || ""),
+          (o.status || ""),
+          (o.created_at || ""),
+          total,
+        ];
+        const escaped = rec.map((v) => {
+          const s = String(v ?? "");
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        });
+        lines.push(escaped.join(","));
+      }
+      const csv = "\uFEFF" + lines.join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      a.download = `orders-page-${page}-${ts}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("CSV exported");
+    } catch (e: any) {
+      toast.error("CSV export failed");
+    }
+  }
 
   const columns: ColumnDef<AdminOrder>[] = [
-    { header: "ID", accessorKey: "id" },
+    {
+      id: "id",
+      accessorKey: "id",
+      header: "ID",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <span>#{row.original.id}</span>
+          <button
+            className="px-2 py-0.5 text-xs rounded border hover:bg-gray-50"
+            onClick={() => copyId(row.original.id)}
+            aria-label="Copy order ID"
+            title="Copy ID"
+          >
+            Copy
+          </button>
+        </div>
+      ),
+    },
     {
       header: "Customer",
       cell: ({ row }) => (
@@ -83,23 +212,31 @@ export default function Orders() {
       cell: ({ row }) => (
         <button
           aria-label="View items"
-          className="underline text-blue-600 hover:text-blue-700"
-          onClick={() => setOpen(row.original)}
+          className="underline text-blue-600 hover:text-blue-700 disabled:opacity-50"
+          onClick={() => openWithItems(row.original)}
+          disabled={loadingItemsId === row.original.id}
         >
-          {(row.original.items || []).length} items
+          {(() => {
+            const o = row.original as AdminOrder;
+            const itemsLen = Array.isArray(o.items) ? o.items.length : 0;
+            const count = itemsLen > 0 ? itemsLen : (typeof (o as any).items_count === "number" ? (o as any).items_count : 0);
+            return `${count} items`;
+          })()}
         </button>
       ),
     },
     {
       header: "Total",
-      cell: ({ row }) => (
-        <span className="font-semibold">
-          {formatCurrency((row.original.items || []).reduce((s, it: any) => s + it.price * it.quantity, 0), currency)}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const o = row.original as AdminOrder;
+        const total = typeof o.total_price === "number" && !isNaN(o.total_price)
+          ? o.total_price
+          : (o.items || []).reduce((s, it: any) => s + it.price * it.quantity, 0);
+        return <span className="font-semibold">{formatCurrency(total, currency)}</span>;
+      },
     },
-    { header: "Status", cell: ({ row }) => <StatusBadge s={(row.original.status || "").toLowerCase()} /> },
-    { header: "Created", cell: ({ row }) => formatDateTime(row.original.created_at as any) },
+    { id: "status", accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge s={(row.original.status || "").toLowerCase()} /> },
+    { id: "created_at", accessorKey: "created_at", header: "Created", cell: ({ row }) => formatDateTime(row.original.created_at) },
     {
       header: "Actions",
       cell: ({ row }) => {
@@ -121,10 +258,10 @@ export default function Orders() {
               onChange={async (e) => {
                 try {
                   await updateStatus.mutateAsync({ id: row.original.id, status: e.target.value });
-                } catch (err: any) {
-                  const msg = err?.response?.data?.error || err?.message || "Failed";
-                  setToast(msg);
-                  setTimeout(() => setToast(""), 2000);
+                  toast.success("Order status updated");
+                } catch (err) {
+                  const msg = (err as any)?.response?.data?.error || (err as Error).message || "Failed";
+                  toast.error(msg);
                 }
               }}
               aria-label="Change status"
@@ -140,10 +277,7 @@ export default function Orders() {
             ) : (
               <button
                 className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
-                onClick={() => {
-                  setToast("Courier assignment will be available soon.");
-                  setTimeout(() => setToast(""), 2000);
-                }}
+                onClick={() => toast.info("Courier assignment will be available soon.")}
                 aria-label="Assign courier"
                 disabled={locked}
                 title={locked ? "Cannot assign courier to delivered/cancelled order" : undefined}
@@ -159,12 +293,11 @@ export default function Orders() {
                 if (!ok) return;
                 try {
                   await updateStatus.mutateAsync({ id: row.original.id, status: "delivered" });
-                  setToast("Order marked as delivered");
-                } catch (err: any) {
-                  const msg = err?.response?.data?.error || err?.message || "Failed";
-                  setToast(msg);
+                  toast.success("Order marked as delivered");
+                } catch (err) {
+                  const msg = (err as any)?.response?.data?.error || (err as Error).message || "Failed";
+                  toast.error(msg);
                 } finally {
-                  setTimeout(() => setToast(""), 1500);
                   refresh();
                 }
               }}
@@ -191,14 +324,11 @@ export default function Orders() {
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <span>Last updated: {new Date(dataUpdatedAt || 0).toLocaleTimeString()}</span>
           <button className="px-3 py-1 rounded bg-amber-500 text-white hover:bg-amber-600" onClick={refresh}>Refresh</button>
+          <button className="px-3 py-1 rounded border" onClick={exportCsv} title="Export current page as CSV">Export CSV</button>
         </div>
       </div>
 
-      {toast && (
-        <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
-          {toast}
-        </div>
-      )}
+      {/* Toasts are globally rendered by ToastProvider */}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
         <input className="border rounded px-3 py-2 md:col-span-2" placeholder="Search name/email" value={user} onChange={(e) => setUser(e.target.value)} />
@@ -237,7 +367,7 @@ export default function Orders() {
               )}
             </div>
           ) : (
-            <DataTable columns={columns} data={pageData} />
+            <DataTable columns={columns} data={pageData} onTableReady={(t) => (tableRef.current = t)} />
           )}
           <div className="flex items-center justify-between text-sm">
             <div>
@@ -315,7 +445,7 @@ export default function Orders() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(open.items || []).map((it: any, idx: number) => (
+                    {(open.items || []).map((it, idx: number) => (
                       <tr key={idx} className="even:bg-amber-50/20">
                         <td className="px-3 py-2">{it.name}</td>
                         <td className="px-3 py-2">{it.quantity}</td>
@@ -327,7 +457,7 @@ export default function Orders() {
                 </table>
               </div>
               <div className="text-right mt-2 font-semibold">
-                Total: {formatCurrency(((open.items || []).reduce((s: number, it: any) => s + it.price * it.quantity, 0)), currency)}
+                Total: {formatCurrency(getTotal(open), currency)}
               </div>
             </div>
             <div className="mt-4 text-sm text-gray-600">Assigned courier: —</div>

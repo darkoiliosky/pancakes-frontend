@@ -51,8 +51,10 @@ export function useAdminDeliveries(filters: { status?: string }) {
     queryFn: () => fetchDeliveries(normalized),
     // v5 replacement for keepPreviousData
     placeholderData: (prev) => (prev as AdminDelivery[] | undefined) ?? [],
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 20000, // auto-refresh every ~20s
+    refetchIntervalInBackground: true,
   });
 }
 

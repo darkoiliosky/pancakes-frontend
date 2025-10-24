@@ -1,5 +1,6 @@
 import SummaryCard from "../components/SummaryCard";
 import { useDashboardStats } from "../hooks/useDashboardStats";
+import { useAdminShop } from "../api/useAdminShop";
 
 function StatCard({
   title,
@@ -32,6 +33,9 @@ function StatCard({
 export default function Dashboard() {
   const { base, derived, isLoading, isError, updatedAt } = useDashboardStats();
   const data = base.data!;
+  const shop = useAdminShop();
+  const currency = shop.data?.currency || "$";
+  const fmt = (n: number) => `${currency}${Number(n || 0).toFixed(2)}`;
 
   if (isLoading) {
     return (
@@ -58,7 +62,7 @@ export default function Dashboard() {
       {/* Top stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Orders" value={data.totalOrders} icon="📦" color="blue" />
-        <StatCard title="Total Income" value={`$${data.totalIncome.toFixed(2)}`} icon="💰" color="green" />
+        <StatCard title="Total Income" value={fmt(data.totalIncome)} icon="💰" color="green" />
         <StatCard title="Total Users" value={data.totalUsers} icon="👥" color="orange" />
         <StatCard title="Shop" value={data.totalRestaurants || 1} icon="🏪" color="yellow" />
       </div>
@@ -93,7 +97,7 @@ export default function Dashboard() {
               );
             })}
           </div>
-          <div className="text-xs text-gray-600 mt-2">Avg order value: ${derived.avgOrderValue.toFixed(2)}</div>
+          <div className="text-xs text-gray-600 mt-2">Avg order value: {fmt(derived.avgOrderValue)}</div>
         </div>
         <div className="p-4 rounded-xl bg-white border">
           <div className="font-semibold mb-2">Quick Stats</div>
