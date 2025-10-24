@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAdminOrders, type AdminOrder, useUpdateOrderStatus } from "../api/useAdminOrders";
+import { useAdminShop } from "../api/useAdminShop";
 import DataTable from "../components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { useQueryClient } from "@tanstack/react-query";
@@ -52,6 +53,8 @@ export default function Orders() {
   const [toast, setToast] = useState<string>("");
   const { data = [], isLoading, error, dataUpdatedAt } = useAdminOrders({ status, user: debounced, from, to });
   const updateStatus = useUpdateOrderStatus();
+  const shop = useAdminShop();
+  const currency = shop.data?.currency || "$";
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(user), 300);
@@ -91,7 +94,7 @@ export default function Orders() {
       header: "Total",
       cell: ({ row }) => (
         <span className="font-semibold">
-          {formatCurrency((row.original.items || []).reduce((s, it: any) => s + it.price * it.quantity, 0))}
+          {formatCurrency((row.original.items || []).reduce((s, it: any) => s + it.price * it.quantity, 0), currency)}
         </span>
       ),
     },
@@ -316,15 +319,15 @@ export default function Orders() {
                       <tr key={idx} className="even:bg-amber-50/20">
                         <td className="px-3 py-2">{it.name}</td>
                         <td className="px-3 py-2">{it.quantity}</td>
-                        <td className="px-3 py-2">{formatCurrency(it.price)}</td>
-                        <td className="px-3 py-2">{formatCurrency(it.price * it.quantity)}</td>
+                        <td className="px-3 py-2">{formatCurrency(it.price, currency)}</td>
+                        <td className="px-3 py-2">{formatCurrency(it.price * it.quantity, currency)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <div className="text-right mt-2 font-semibold">
-                Total: {formatCurrency(((open.items || []).reduce((s: number, it: any) => s + it.price * it.quantity, 0)))}
+                Total: {formatCurrency(((open.items || []).reduce((s: number, it: any) => s + it.price * it.quantity, 0)), currency)}
               </div>
             </div>
             <div className="mt-4 text-sm text-gray-600">Assigned courier: —</div>

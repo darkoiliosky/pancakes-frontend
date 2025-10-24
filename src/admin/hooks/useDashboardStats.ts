@@ -68,8 +68,8 @@ export function useDashboardStats() {
       series,
       avgOrderValue,
       roleCounts,
-      pendingCount: pendingOrders.data?.length ?? 0,
-      activeDeliveriesCount: activeDeliveries.data?.length ?? 0,
+      pendingCount: Array.isArray(pendingOrders.data) ? pendingOrders.data.length : 0,
+      activeDeliveriesCount: Array.isArray(activeDeliveries.data) ? activeDeliveries.data.length : 0,
     };
   }, [orders7.data, usersAll.data, pendingOrders.data, activeDeliveries.data]);
 
@@ -93,4 +93,3 @@ export function useDashboardStats() {
     updatedAt,
   } as const;
 }
-
