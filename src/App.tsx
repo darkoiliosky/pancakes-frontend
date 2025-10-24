@@ -3,6 +3,10 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
+import PublicMenu from "./public/pages/Menu";
+import PublicCart from "./public/pages/Cart";
+import PublicCheckout from "./public/pages/Checkout";
+import PublicMyOrders from "./public/pages/MyOrders";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
@@ -39,6 +43,24 @@ function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/menu" element={<PublicMenu />} />
+            <Route path="/cart" element={<PublicCart />} />
+            <Route
+              path="/checkout"
+              element={
+                <PrivateRoute>
+                  <PublicCheckout />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/orders"
+              element={
+                <PrivateRoute>
+                  <PublicMyOrders />
+                </PrivateRoute>
+              }
+            />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

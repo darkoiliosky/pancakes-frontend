@@ -25,6 +25,9 @@ apiClient.interceptors.response.use(
           // Redirect to login
           const loginPath = "/login";
           if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem("sessionExpired", "1");
+            } catch {}
             // Avoid redirect loop if already on login
             const current = window.location.pathname;
             if (current !== loginPath) {

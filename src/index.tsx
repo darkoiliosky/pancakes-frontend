@@ -8,6 +8,8 @@ import { queryClient } from "./lib/queryClient";
 import { ToastProvider } from "./context/ToastContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import DebugPanel from "./dev/DebugPanel";
+import { CartProvider } from "./public/context/CartContext";
+import SessionToast from "./components/SessionToast";
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
@@ -18,10 +20,13 @@ root.render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <AuthProvider>
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
-          <DebugPanel />
+          <CartProvider>
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
+            <SessionToast />
+            <DebugPanel />
+          </CartProvider>
         </AuthProvider>
       </ToastProvider>
     </QueryClientProvider>
