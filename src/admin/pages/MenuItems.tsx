@@ -13,6 +13,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Switch } from "../../components/ui/switch";
+import { moneyFormat } from "../../utils/format";
+import MenuItemModifiers from "../components/MenuItemModifiers";
 
 const schema = z.object({
   name: z.string().min(1),
@@ -51,7 +53,7 @@ export default function MenuItems() {
     },
     { header: "Name", accessorKey: "name" },
     { header: "Category", accessorKey: "category" },
-    { header: "Price", cell: ({ row }) => `${row.original.price.toFixed(2)}` },
+    { header: "Price", cell: ({ row }) => moneyFormat(row.original.price) },
     {
       header: "Available",
       cell: ({ row }) => {
@@ -149,7 +151,7 @@ export default function MenuItems() {
       ) : (
         <>
           <DataTable columns={columns} data={items} />
-      <div ref={formRef} className="mt-6 p-4 border rounded-xl bg-white max-w-xl">
+      <div ref={formRef} className="mt-6 p-4 border rounded-xl bg-white max-w-3xl">
         <h2 className="font-semibold mb-3">{editing ? "Edit Item" : "Create Item"}</h2>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
               <div>
@@ -209,6 +211,9 @@ export default function MenuItems() {
                 {isSubmitting ? "Saving..." : "Save"}
               </button>
             </form>
+            {editing && (
+              <MenuItemModifiers menuItemId={editing.id} basePrice={editing.price} />
+            )}
           </div>
         </>
       )}

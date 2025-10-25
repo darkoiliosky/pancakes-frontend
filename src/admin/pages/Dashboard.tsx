@@ -1,6 +1,7 @@
 import SummaryCard from "../components/SummaryCard";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useAdminShop } from "../api/useAdminShop";
+import { moneyFormat } from "../../utils/format";
 
 function StatCard({
   title,
@@ -35,7 +36,7 @@ export default function Dashboard() {
   const data = base.data!;
   const shop = useAdminShop();
   const currency = shop.data?.currency || "$";
-  const fmt = (n: number) => `${currency}${Number(n || 0).toFixed(2)}`;
+  const fmt = (n: number) => moneyFormat(n, currency);
 
   if (isLoading) {
     return (

@@ -6,6 +6,8 @@ import { ColumnDef, type Table, type SortingState } from "@tanstack/react-table"
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../context/ToastContext";
 import apiClient from "../../api/client";
+import { moneyFormat } from "../../utils/format";
+import { parseAxiosError } from "../../api/errors";
 import { useCouriers } from "../api/useCouriers";
 import { useCreateDelivery } from "../api/useAdminDeliveries";
 
@@ -23,13 +25,7 @@ function formatDateTime(iso?: string) {
   });
 }
 
-function formatCurrency(n: number, currency = "$") {
-  try {
-    return `${currency}${n.toFixed(2)}`;
-  } catch {
-    return `${currency}${Number(n || 0).toFixed(2)}`;
-  }
-}
+// use moneyFormat instead
 
 function StatusBadge({ s }: { s: string }) {
   const c = (s: string) =>
@@ -103,8 +99,7 @@ export default function Orders() {
       });
       setOpen({ ...order, items });
     } catch (e) {
-      const msg = (e as any)?.response?.data?.error || (e as Error).message || "Failed to load items";
-      toast.error(msg);
+      toast.error(parseAxiosError(e));
       setOpen(order);
     } finally {
       setLoadingItemsId(null);
@@ -246,7 +241,7 @@ export default function Orders() {
         const total = typeof o.total_price === "number" && !isNaN(o.total_price)
           ? o.total_price
           : (o.items || []).reduce((s, it: any) => s + it.price * it.quantity, 0);
-        return <span className="font-semibold">{formatCurrency(total, currency)}</span>;
+        return <span className="font-semibold">{moneyFormat(total, currency)}</span>;
       },
     },
     { id: "status", accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge s={(row.original.status || "").toLowerCase()} /> },
@@ -274,8 +269,7 @@ export default function Orders() {
                   await updateStatus.mutateAsync({ id: row.original.id, status: e.target.value });
                   toast.success("Order status updated");
                 } catch (err) {
-                  const msg = (err as any)?.response?.data?.error || (err as Error).message || "Failed";
-                  toast.error(msg);
+                  toast.error(parseAxiosError(err));
                 }
               }}
               aria-label="Change status"
@@ -315,8 +309,7 @@ export default function Orders() {
                   await updateStatus.mutateAsync({ id: row.original.id, status: "delivered" });
                   toast.success("Order marked as delivered");
                 } catch (err) {
-                  const msg = (err as any)?.response?.data?.error || (err as Error).message || "Failed";
-                  toast.error(msg);
+                  toast.error(parseAxiosError(err));
                 } finally {
                   refresh();
                 }
@@ -528,15 +521,15 @@ export default function Orders() {
                       <tr key={idx} className="even:bg-amber-50/20">
                         <td className="px-3 py-2">{it.name}</td>
                         <td className="px-3 py-2">{it.quantity}</td>
-                        <td className="px-3 py-2">{formatCurrency(it.price, currency)}</td>
-                        <td className="px-3 py-2">{formatCurrency(it.price * it.quantity, currency)}</td>
+                        <td className="px-3 py-2">{moneyFormat(it.price, currency)}</td>
+                        <td className="px-3 py-2">{moneyFormat(it.price * it.quantity, currency)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <div className="text-right mt-2 font-semibold">
-                Total: {formatCurrency(getTotal(open), currency)}
+                Total: {moneyFormat(getTotal(open), currency)}
               </div>
             </div>
             <div className="mt-4 text-sm text-gray-800">
@@ -571,8 +564,7 @@ export default function Orders() {
                         const found = (couriers.data || []).find((c) => c.id === assignId);
                         setOpen({ ...open, courier: found ? { id: found.id, name: found.name, email: found.email } : { id: assignId as number } as any });
                       } catch (e) {
-                        const msg = (e as any)?.response?.data?.error || (e as Error).message || "Assign failed";
-                        toast.error(msg);
+                        toast.error(parseAxiosError(e));
                       }
                     }}
                   >

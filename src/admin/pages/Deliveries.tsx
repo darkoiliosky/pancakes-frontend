@@ -4,6 +4,7 @@ import DataTable from "../components/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { useAdminUsers } from "../api/useAdminUsers";
 import { useToast } from "../../context/ToastContext";
+import { parseAxiosError } from "../../api/errors";
 
 function StatusBadge({ s }: { s: string }) {
   const c = (s: string) =>
@@ -82,8 +83,7 @@ export default function Deliveries() {
                   await updateDelivery.mutateAsync(payload);
                   toast.success(`Status updated to ${target}`);
                 } catch (err: any) {
-                  const msg = err?.response?.data?.error || err?.message || "Failed to update status";
-                  toast.error(msg);
+                  toast.error(parseAxiosError(err));
                 }
               }}
               disabled={locked || updateDelivery.isPending}
@@ -166,8 +166,7 @@ export default function Deliveries() {
                       setAssignForOrder(null);
                       setSelectedCourier("");
                     } catch (e: any) {
-                      const msg = e?.response?.data?.error || e?.message || "Failed";
-                      toast.error(msg);
+                      toast.error(parseAxiosError(e));
                     }
                   }}
                 >

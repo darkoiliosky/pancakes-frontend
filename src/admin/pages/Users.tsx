@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { parseAxiosError } from "../../api/errors";
 
 const inviteSchema = z.object({ email: z.string().email() });
 type InviteForm = z.infer<typeof inviteSchema>;
@@ -108,7 +109,7 @@ export default function Users() {
       setInviteOk(true);
       setTimeout(() => setInviteOk(false), 2000);
     } catch (e: any) {
-      alert(e?.message || "Failed to invite");
+      alert(parseAxiosError(e));
     }
   };
 
