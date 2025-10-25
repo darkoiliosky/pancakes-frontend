@@ -32,7 +32,9 @@ export function useDashboardStats() {
 
   // derive metrics
   const derived = useMemo(() => {
-    const orders = orders7.data ?? [];
+    const orders: any[] = Array.isArray(orders7.data)
+      ? (orders7.data as any[])
+      : (orders7.data?.orders ?? []);
     const byDay = new Map<string, { count: number; income: number }>();
     for (let i = 6; i >= 0; i--) {
       const key = isoDate(-i);
@@ -71,7 +73,11 @@ export function useDashboardStats() {
       series,
       avgOrderValue,
       roleCounts,
-      pendingCount: Array.isArray(pendingOrders.data) ? pendingOrders.data.length : 0,
+      pendingCount: Array.isArray(pendingOrders.data)
+        ? (pendingOrders.data as any[]).length
+        : Array.isArray((pendingOrders.data as any)?.orders)
+        ? (pendingOrders.data as any).orders.length
+        : 0,
       activeDeliveriesCount: Array.isArray(activeDeliveries.data) ? activeDeliveries.data.length : 0,
     };
   }, [orders7.data, usersAll.data, pendingOrders.data, activeDeliveries.data]);

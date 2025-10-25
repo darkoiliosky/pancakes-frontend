@@ -6,6 +6,7 @@ import {
   useReactTable,
   type ColumnDef,
   type Table,
+  type SortingState,
 } from "@tanstack/react-table";
 import { useEffect } from "react";
 
@@ -15,15 +16,23 @@ type Props<T extends object> = {
   globalFilter?: string;
   onGlobalFilterChange?: (v: string) => void;
   onTableReady?: (table: Table<T>) => void;
+  sorting?: SortingState;
+  onSortingChange?: (updater: SortingState) => void;
+  manualSort?: boolean;
 };
 
-export default function DataTable<T extends object>({ columns, data, globalFilter, onTableReady }: Props<T>) {
+export default function DataTable<T extends object>({ columns, data, globalFilter, onTableReady, sorting, onSortingChange, manualSort }: Props<T>) {
   const table = useReactTable({
     columns,
     data,
-    state: { globalFilter },
+    state: { globalFilter, sorting },
+    manualSorting: !!manualSort,
+    onSortingChange: (updater) => {
+      // @ts-ignore
+      onSortingChange?.(typeof updater === "function" ? updater(table.getState().sorting) : updater);
+    },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getSortedRowModel: manualSort ? undefined : getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
 

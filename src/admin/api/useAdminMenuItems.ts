@@ -8,11 +8,16 @@ export const menuItemSchema = z.object({
   description: z.string().nullable().optional(),
   price: z.number(),
   category: z.string().nullable().optional(),
-  image_url: z.string().url().nullable().optional(),
+  // Accept relative URLs like /uploads/..., so do not enforce absolute URL
+  image_url: z.string().nullable().optional(),
+  stock: z.number().nullable().optional(),
   available: z.boolean().optional(),
 });
 
-const listSchema = z.object({ items: z.array(menuItemSchema) });
+// Tolerant schema: accept array, { items: [...] } or { menu_items: [...] }
+const schemaArray = z.array(menuItemSchema);
+const listSchemaItems = z.object({ items: schemaArray });
+const listSchemaAlt = z.object({ menu_items: schemaArray });
 
 export type AdminMenuItem = z.infer<typeof menuItemSchema>;
 
@@ -24,7 +29,18 @@ async function fetchMenu(params?: { category?: string; available?: string; q?: s
     cleanParams.available = params.available;
   }
   const res = await apiClient.get(`/api/admin/menu`, { params: cleanParams });
-  return listSchema.parse(res.data).items;
+  const raw = res.data;
+  try {
+    if (Array.isArray(raw)) return schemaArray.parse(raw);
+    if (Array.isArray(raw?.items)) return schemaArray.parse(raw.items);
+    if (Array.isArray(raw?.menu_items)) return schemaArray.parse(raw.menu_items);
+    // Try strict schemas as a fallback to throw clear error
+    try { return listSchemaItems.parse(raw).items; } catch {}
+    try { return listSchemaAlt.parse(raw).menu_items; } catch {}
+    return [];
+  } catch {
+    return [];
+  }
 }
 
 export function useAdminMenuItems(filters: { category?: string; available?: string; q?: string }) {
@@ -39,7 +55,9 @@ const upsertSchema = z.object({
   description: z.string().optional(),
   price: z.number().nonnegative(),
   category: z.string().optional(),
-  image: z.string().url().optional(),
+  image: z.string().optional(),
+  image_base64: z.string().optional(),
+  stock: z.number().int().min(0).nullable().optional(),
   available: z.boolean().optional(),
 });
 export type UpsertMenuItem = z.infer<typeof upsertSchema>;

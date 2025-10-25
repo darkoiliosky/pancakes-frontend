@@ -14,8 +14,13 @@ const orderSchema = z.object({
   id: z.number(),
   status: z.string(),
   created_at: z.string(),
+  updated_at: z.string().optional(),
   total_price: z.coerce.number().optional().default(0),
   items_count: z.coerce.number().optional().default(0),
+  delivery_address: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  order_type: z.string().nullable().optional(),
   items: z.array(orderItemSchema).optional().default([]),
 });
 
@@ -31,4 +36,3 @@ async function fetchMyOrders(): Promise<MyOrder[]> {
 export function useMyOrders() {
   return useQuery({ queryKey: ["orders", "my"], queryFn: fetchMyOrders });
 }
-

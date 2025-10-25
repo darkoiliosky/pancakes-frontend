@@ -6,7 +6,10 @@ export default function DebugPanel() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const sub = queryClient.getQueryCache().subscribe(() => setTick((t) => t + 1));
+    const sub = queryClient.getQueryCache().subscribe(() => {
+      // Defer state updates to avoid setState during other component renders
+      setTimeout(() => setTick((t) => t + 1), 0);
+    });
     return () => sub?.();
   }, []);
 
@@ -61,4 +64,3 @@ export default function DebugPanel() {
     </div>
   );
 }
-

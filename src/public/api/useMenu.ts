@@ -9,6 +9,7 @@ const menuItemSchema = z.object({
   price: z.coerce.number(),
   category: z.string().nullable().optional(),
   image_url: z.string().nullable().optional(),
+  stock: z.coerce.number().nullable().optional(),
   available: z.boolean().optional().default(true),
 });
 

@@ -71,8 +71,42 @@ export default function MyOrders() {
               <h2 className="text-lg font-semibold">Order #{openOrder.id}</h2>
               <button className="text-gray-500 hover:text-gray-700" onClick={() => setOpenId(null)}>×</button>
             </div>
-            <div className="text-sm text-gray-600 mb-2">Status: <span className="capitalize">{openOrder.status}</span></div>
-            <div className="text-sm text-gray-600 mb-4">Created: {formatDate(openOrder.created_at)}</div>
+            <div className="text-sm text-gray-600 mb-1">Status: <span className="capitalize">{openOrder.status}</span></div>
+            <div className="text-sm text-gray-600 mb-1">Created: {formatDate(openOrder.created_at)}</div>
+            {openOrder.updated_at && (
+              <div className="text-sm text-gray-600 mb-1">Updated: {formatDate(openOrder.updated_at)}</div>
+            )}
+            <div className="text-sm text-gray-600 mb-4">
+              Type: <span className="capitalize">{(openOrder.order_type || 'delivery')}</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 mb-4 text-sm">
+              {(openOrder.order_type || 'delivery') === 'delivery' && (
+                <div>
+                  <div className="text-gray-800 font-medium">Delivery Address</div>
+                  <div className="whitespace-pre-wrap break-words">{openOrder.delivery_address || '—'}</div>
+                  {openOrder.delivery_address && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(openOrder.delivery_address)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 underline text-xs"
+                    >
+                      Open in Maps
+                    </a>
+                  )}
+                </div>
+              )}
+              <div>
+                <div className="text-gray-800 font-medium">Phone</div>
+                <div>{openOrder.phone || '—'}</div>
+              </div>
+              {openOrder.notes && (
+                <div>
+                  <div className="text-gray-800 font-medium">Notes</div>
+                  <div className="whitespace-pre-wrap break-words">{openOrder.notes}</div>
+                </div>
+              )}
+            </div>
             <div className="border rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-[#f8f8f8]">

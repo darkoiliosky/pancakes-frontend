@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useCourierDeliveries, useUpdateCourierDelivery } from "../api/useCourierDeliveries";
+import { useCourierDeliveries, useUpdateCourierDelivery, useAvailableOrders, useSelfAssign } from "../api/useCourierDeliveries";
+import { useToast } from "../../context/ToastContext";
 
 function StatusBadge({ s }: { s: string }) {
   const st = (s || "").toLowerCase();
@@ -18,6 +19,9 @@ function StatusBadge({ s }: { s: string }) {
 export default function MyDeliveries() {
   const { data = [], isLoading, isError, refetch } = useCourierDeliveries();
   const update = useUpdateCourierDelivery();
+  const available = useAvailableOrders();
+  const selfAssign = useSelfAssign();
+  const toast = useToast();
 
   const rows = useMemo(() => data, [data]);
 
@@ -26,6 +30,43 @@ export default function MyDeliveries() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-amber-700">My Deliveries</h1>
         <button className="px-3 py-1 rounded bg-amber-500 text-white hover:bg-amber-600" onClick={() => refetch()}>Refresh</button>
+      </div>
+      {/* Available orders to accept */}
+      <div className="rounded-xl border bg-white mb-6">
+        <div className="px-4 py-3 border-b font-medium">Available Orders</div>
+        {available.isLoading ? (
+          <div className="p-4 text-gray-600">Loading...</div>
+        ) : (available.data || []).length === 0 ? (
+          <div className="p-4 text-gray-600">No available orders.</div>
+        ) : (
+          <div className="divide-y">
+            {(available.data || []).map((o) => (
+              <div key={o.id} className="px-4 py-3 flex items-center justify-between text-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">Order #{o.id} · {(o.status || '').toUpperCase()}</div>
+                  <div className="text-gray-600 truncate">{o.delivery_address || "Pickup"}</div>
+                </div>
+                <button
+                  className="px-3 py-1 rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 ml-3"
+                  onClick={async () => {
+                    try {
+                      await selfAssign.mutateAsync({ order_id: o.id });
+                      toast.success("Order accepted");
+                      available.refetch();
+                      refetch();
+                    } catch (e: any) {
+                      const msg = e?.response?.data?.error || e?.message || "Accept failed";
+                      toast.error(msg);
+                    }
+                  }}
+                  disabled={selfAssign.isPending}
+                >
+                  Accept
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="rounded-xl border bg-white p-0 overflow-hidden">
         {isLoading ? (
@@ -83,4 +124,3 @@ export default function MyDeliveries() {
     </div>
   );
 }
-

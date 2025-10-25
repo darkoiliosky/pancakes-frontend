@@ -105,7 +105,7 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                       <input
                         type="number"
                         min={1}
-                        max={99}
+                        max={Math.max(1, Math.min(99, typeof (item as any).stock === 'number' && (item as any).stock !== null ? (item as any).stock as number : 99))}
                         value={qty[item.id] ?? 1}
                         onChange={(e) => setQ(item.id, Number(e.target.value))}
                         className="w-20 border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300"
@@ -113,11 +113,11 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                       {isCustomer ? (
                         <Button
                           onClick={() => add({ item_id: item.id, name: item.name, price: item.price, quantity: qty[item.id] ?? 1 })}
-                          disabled={item.available === false}
+                          disabled={item.available === false || ((item as any).stock !== null && typeof (item as any).stock === 'number' && (item as any).stock <= 0)}
                           className="shadow-sm hover:shadow ring-1 ring-amber-300/30"
                           aria-live="polite"
                         >
-                          {item.available === false ? "Unavailable" : "Add to Cart"}
+                          {item.available === false ? "Unavailable" : (((item as any).stock !== null && typeof (item as any).stock === 'number' && (item as any).stock <= 0) ? "Out of stock" : "Add to Cart")}
                         </Button>
                       ) : isAdmin ? (
                         <Link to={`/admin/menu-items?edit=${item.id}`} className="inline-flex">
@@ -125,6 +125,9 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                         </Link>
                       ) : (
                         <Button disabled className="opacity-70">Customers only</Button>
+                      )}
+                      {(typeof (item as any).stock === 'number' && (item as any).stock !== null) && (
+                        <span className="text-xs text-gray-600">{(item as any).stock} left</span>
                       )}
                     </div>
                   </CardContent>

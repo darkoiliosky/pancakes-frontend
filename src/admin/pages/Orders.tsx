@@ -6,6 +6,8 @@ import { ColumnDef, type Table, type SortingState } from "@tanstack/react-table"
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../context/ToastContext";
 import apiClient from "../../api/client";
+import { useCouriers } from "../api/useCouriers";
+import { useCreateDelivery } from "../api/useAdminDeliveries";
 
 const statuses = ["pending", "accepted", "preparing", "ready", "delivering", "delivered", "cancelled"] as const;
 
@@ -53,7 +55,12 @@ export default function Orders() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const toast = useToast();
-  const { data = [], isLoading, error, dataUpdatedAt } = useAdminOrders({ status, user: debounced, from, to });
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [sorting, setSorting] = useState<SortingState>([{ id: "created_at", desc: true }]);
+  const sortBy = sorting[0]?.id && ["id","created_at","status","total"].includes(String(sorting[0].id)) ? String(sorting[0].id) : undefined;
+  const sortDir = sorting[0] ? (sorting[0].desc ? "desc" : "asc") : undefined;
+  const { data: resp, isLoading, error, dataUpdatedAt } = useAdminOrders({ status, user: debounced, from, to, type: typeFilter, page, pageSize, sortBy, sortDir });
+  const data = resp?.orders || [];
   const updateStatus = useUpdateOrderStatus();
   const shop = useAdminShop();
   const currency = shop.data?.currency || "$";
@@ -63,9 +70,9 @@ export default function Orders() {
     return () => clearTimeout(t);
   }, [user]);
 
-  const total = data.length;
+  const total = resp?.total ?? data.length;
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  const pageData = useMemo(() => data.slice((page - 1) * pageSize, page * pageSize), [data, page, pageSize]);
+  const pageData = data;
   const tableRef = useRef<Table<AdminOrder> | null>(null);
 
   function copyId(id: number) {
@@ -84,11 +91,14 @@ export default function Orders() {
       const res = await apiClient.get(`/api/admin/orders/${order.id}/items`);
       const items = Array.isArray(res.data?.items) ? res.data.items : [];
       // Update cache so count and modal reflect latest items
-      const prev = qc.getQueriesData<AdminOrder[]>({ queryKey: ["admin", "orders"] });
+      const prev = qc.getQueriesData<any>({ queryKey: ["admin", "orders"] });
       prev.forEach(([key, rows]) => {
         if (Array.isArray(rows)) {
           const next = rows.map((o) => (o.id === order.id ? { ...o, items, items_count: items.length } : o));
           qc.setQueryData(key, next as AdminOrder[]);
+        } else if (rows && Array.isArray(rows.orders)) {
+          const next = { ...rows, orders: rows.orders.map((o: any) => (o.id === order.id ? { ...o, items, items_count: items.length } : o)) };
+          qc.setQueryData(key, next);
         }
       });
       setOpen({ ...order, items });
@@ -144,7 +154,7 @@ export default function Orders() {
         return 0;
       });
       const safeRows = sortedAll as AdminOrder[];
-      const header = ["id", "customer_name", "customer_email", "status", "created_at", "total"];
+      const header = ["id", "customer_name", "customer_email", "status", "type", "created_at", "updated_at", "total"];
       const lines = [header.join(",")];
       for (const o of safeRows) {
         const total = getTotal(o);
@@ -153,7 +163,9 @@ export default function Orders() {
           (o.user?.name || ""),
           (o.user?.email || ""),
           (o.status || ""),
+          (o.order_type || ""),
           (o.created_at || ""),
+          (o.updated_at || ""),
           total,
         ];
         const escaped = rec.map((v) => {
@@ -225,7 +237,9 @@ export default function Orders() {
         </button>
       ),
     },
+    { id: "order_type", accessorKey: "order_type", header: "Type", cell: ({ row }) => <span className="capitalize">{(row.original.order_type || "-")}</span> },
     {
+      id: "total",
       header: "Total",
       cell: ({ row }) => {
         const o = row.original as AdminOrder;
@@ -265,12 +279,18 @@ export default function Orders() {
                 }
               }}
               aria-label="Change status"
-              disabled={locked}
-              title={locked ? "Status cannot be changed after delivery/cancellation" : undefined}
+              disabled={locked || updateStatus.isPending}
+              title={locked ? "Status cannot be changed after delivery/cancellation" : (updateStatus.isPending ? "Updating..." : undefined)}
             >
-              {statuses.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              {statuses.map((s) => {
+                const order = row.original as AdminOrder;
+                const curIdx = statuses.indexOf((order.status || "") as any);
+                const idx = statuses.indexOf(s as any);
+                const disabled = s !== "cancelled" && (idx < curIdx);
+                return (
+                  <option key={s} value={s} disabled={disabled}>{s}</option>
+                );
+              })}
             </select>
             {row.original.courier?.name ? (
               <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1">Courier: {row.original.courier.name}</span>
@@ -314,6 +334,11 @@ export default function Orders() {
   ];
 
   const [open, setOpen] = useState<AdminOrder | null>(null);
+  const [modalUpdating, setModalUpdating] = useState(false);
+  const modalUpdatingRef = useRef(false);
+  const couriers = useCouriers();
+  const createDelivery = useCreateDelivery();
+  const [assignId, setAssignId] = useState<number | "">("");
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin", "orders"] });
 
@@ -330,13 +355,18 @@ export default function Orders() {
 
       {/* Toasts are globally rendered by ToastProvider */}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <input className="border rounded px-3 py-2 md:col-span-2" placeholder="Search name/email" value={user} onChange={(e) => setUser(e.target.value)} />
         <select className="border rounded px-3 py-2" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>
           {statuses.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
+        </select>
+        <select className="border rounded px-3 py-2" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          <option value="">All types</option>
+          <option value="delivery">delivery</option>
+          <option value="pickup">pickup</option>
         </select>
         <input type="date" className="border rounded px-3 py-2" value={from} onChange={(e) => setFrom(e.target.value)} />
         <input type="date" className="border rounded px-3 py-2" value={to} onChange={(e) => setTo(e.target.value)} />
@@ -367,7 +397,7 @@ export default function Orders() {
               )}
             </div>
           ) : (
-            <DataTable columns={columns} data={pageData} onTableReady={(t) => (tableRef.current = t)} />
+            <DataTable columns={columns} data={pageData} onTableReady={(t) => (tableRef.current = t)} sorting={sorting} onSortingChange={(s:any) => { setSorting(Array.isArray(s) ? s : []); setPage(1); }} manualSort />
           )}
           <div className="flex items-center justify-between text-sm">
             <div>
@@ -412,16 +442,43 @@ export default function Orders() {
                     className="border rounded px-2 py-1 text-xs"
                     value={(open.status || "").toLowerCase()}
                     onChange={async (e) => {
-                      await updateStatus.mutateAsync({ id: open.id, status: e.target.value });
-                      refresh();
+                      if (modalUpdatingRef.current) return;
+                      modalUpdatingRef.current = true;
+                      setModalUpdating(true);
+                      const nextStatus = e.target.value;
+                      const prevOpen = open;
+                      // Optimistically reflect new status in modal, same as table does via cache
+                      setOpen({ ...open, status: nextStatus } as any);
+                      try {
+                        await updateStatus.mutateAsync({ id: open.id, status: nextStatus });
+                      } catch (err) {
+                        // noop; toast handled in hook caller elsewhere if needed
+                        // Revert optimistic local state on error
+                        setOpen(prevOpen);
+                      } finally {
+                        setModalUpdating(false);
+                        modalUpdatingRef.current = false;
+                      }
                     }}
                     aria-label="Change status in modal"
+                    disabled={updateStatus.isPending || modalUpdating}
                   >
-                    {statuses.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
+                    {statuses.map((s) => {
+                      const curIdx = statuses.indexOf((open.status || "") as any);
+                      const idx = statuses.indexOf(s as any);
+                      const disabled = s !== "cancelled" && (idx < curIdx);
+                      return (
+                        <option key={s} value={s} disabled={disabled}>{s}</option>
+                      );
+                    })}
                   </select>
                 </div>
+                {(updateStatus.isPending || modalUpdating) && (
+                  <div className="text-xs text-gray-500 flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" aria-hidden />
+                    Updating...
+                  </div>
+                )}
               </div>
               <div>
                 <div className="font-medium">Created</div>
@@ -429,7 +486,29 @@ export default function Orders() {
               </div>
               <div>
                 <div className="font-medium">Updated</div>
-                <div>{/* updated_at optional */}</div>
+                <div>{open.updated_at ? formatDateTime(open.updated_at as any) : ""}</div>
+              </div>
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <div className="font-medium">Order Type</div>
+                  <div className="capitalize">{(open.order_type || 'delivery')}</div>
+                </div>
+                <div>
+                  <div className="font-medium">Phone</div>
+                  <div>{open.phone || '-'}</div>
+                </div>
+                {(open.order_type || 'delivery') === 'delivery' && (
+                  <div className="md:col-span-2">
+                    <div className="font-medium">Delivery Address</div>
+                    <div className="whitespace-pre-wrap break-words">{open.delivery_address || '-'}</div>
+                  </div>
+                )}
+                {open.notes && (
+                  <div className="md:col-span-2">
+                    <div className="font-medium">Notes</div>
+                    <div className="whitespace-pre-wrap break-words">{open.notes}</div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-4">
@@ -460,10 +539,54 @@ export default function Orders() {
                 Total: {formatCurrency(getTotal(open), currency)}
               </div>
             </div>
-            <div className="mt-4 text-sm text-gray-600">Assigned courier: —</div>
+            <div className="mt-4 text-sm text-gray-800">
+              <div className="font-medium mb-1">Courier</div>
+              {open.courier ? (
+                <div className="inline-flex items-center gap-2 px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                  {open.courier.name || open.courier.email || `#${open.courier.id}`}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <select
+                    className="border rounded px-2 py-1"
+                    value={assignId as any}
+                    onChange={(e) => setAssignId(Number(e.target.value))}
+                  >
+                    <option value="">Select courier…</option>
+                    {(couriers.data || []).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name || c.email || `#${c.id}`}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    disabled={!assignId || createDelivery.isPending}
+                    onClick={async () => {
+                      if (!assignId || !open) return;
+                      try {
+                        await createDelivery.mutateAsync({ order_id: open.id, courier_id: assignId as number, status: "accepted" });
+                        toast.success("Courier assigned");
+                        setAssignId("");
+                        refresh();
+                        // reflect in modal
+                        const found = (couriers.data || []).find((c) => c.id === assignId);
+                        setOpen({ ...open, courier: found ? { id: found.id, name: found.name, email: found.email } : { id: assignId as number } as any });
+                      } catch (e) {
+                        const msg = (e as any)?.response?.data?.error || (e as Error).message || "Assign failed";
+                        toast.error(msg);
+                      }
+                    }}
+                  >
+                    Assign
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+
+

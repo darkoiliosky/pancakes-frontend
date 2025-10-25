@@ -33,7 +33,46 @@ export function useUpdateCourierDelivery() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["courier", "deliveries"] });
+      qc.invalidateQueries({ queryKey: ["admin", "orders"] });
     },
   });
 }
 
+// Available orders for self-assign
+const availableOrderSchema = z.object({
+  id: z.number(),
+  created_at: z.string().optional(),
+  total_price: z.number().optional(),
+  status: z.string().optional(),
+  delivery_address: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  order_type: z.string().nullable().optional(),
+  items_count: z.number().optional(),
+});
+const availableListSchema = z.object({ orders: z.array(availableOrderSchema) });
+export type AvailableOrder = z.infer<typeof availableOrderSchema>;
+
+async function fetchAvailableOrders() {
+  const res = await apiClient.get("/api/courier/available");
+  return availableListSchema.parse(res.data).orders;
+}
+
+export function useAvailableOrders() {
+  return useQuery({ queryKey: ["courier", "available"], queryFn: fetchAvailableOrders, refetchInterval: 20000 });
+}
+
+export function useSelfAssign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ order_id }: { order_id: number }) => {
+      const res = await apiClient.post("/api/courier/deliveries/self-assign", { order_id });
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["courier", "available"] });
+      qc.invalidateQueries({ queryKey: ["courier", "deliveries"] });
+      qc.invalidateQueries({ queryKey: ["admin", "orders"] });
+    },
+  });
+}
