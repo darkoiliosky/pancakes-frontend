@@ -120,7 +120,7 @@ export default function MyOrders() {
                 <tbody>
                   {(openOrder.items || []).map((it, idx) => (
                     <tr key={idx} className="even:bg-amber-50/20">
-                      <td className="px-3 py-2">{it.name}</td>
+                      <td className="px-3 py-2">{it.name}{(Array.isArray((it as any).modifiers) && (it as any).modifiers.length>0) ? (<ul className="text-xs text-gray-600">{(it as any).modifiers.map((m:any,idx:number)=>(<li key={idx}>+ {(m.name||m)}</li>))}</ul>) : null}</td>
                       <td className="px-3 py-2 text-right">{it.quantity}</td>
                       <td className="px-3 py-2 text-right">{currency}{(it.price || 0).toFixed(2)}</td>
                       <td className="px-3 py-2 text-right">{currency}{(it.subtotal || (it.price || 0) * (it.quantity || 0)).toFixed(2)}</td>
@@ -136,3 +136,4 @@ export default function MyOrders() {
     </div>
   );
 }
+

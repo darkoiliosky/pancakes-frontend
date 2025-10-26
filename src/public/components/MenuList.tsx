@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { PublicMenuItem } from "../api/useMenu";
 import { useCart } from "../context/CartContext";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
@@ -7,11 +7,14 @@ import { useShop } from "../api/useShop";
 import { useAuth } from "../../context/AuthContext";
 import { Link } from "react-router-dom";
 import formatCurrency from "../../utils/formatCurrency";
+import { useModifiers } from "../api/useModifiers";
 
 type Filters = { q?: string; category?: string; available?: boolean };
 
 export default function MenuList({ items, isLoading, filters }: { items: PublicMenuItem[]; isLoading?: boolean; filters?: Filters }) {
   const { add } = useCart();
+  const [selected, setSelected] = useState<Record<number, Set<number>>>({});
+  const [modsByItem, setModsByItem] = useState<Record<number, { id: number; name: string; price_delta: number }[]>>({});
   const [qty, setQty] = useState<Record<number, number>>({});
   const { data: shop } = useShop();
   const currency = shop?.currency || "";
@@ -101,6 +104,19 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                     {item.available === false && (
                       <div className="text-xs inline-block mb-3 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border">Unavailable</div>
                     )}
+                    <Extras
+                      menuItemId={item.id}
+                      currency={currency}
+                      selected={selected[item.id]}
+                      onLoaded={(mods) => setModsByItem((m) => ({ ...m, [item.id]: mods }))}
+                      onToggle={(id) => {
+                        setSelected((cur) => {
+                          const s = new Set(cur[item.id] || []);
+                          if (s.has(id)) s.delete(id); else s.add(id);
+                          return { ...cur, [item.id]: s };
+                        });
+                      }}
+                    />
                     <div className="flex items-center gap-3">
                       <input
                         type="number"
@@ -112,7 +128,12 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                       />
                       {isCustomer ? (
                         <Button
-                          onClick={() => add({ item_id: item.id, name: item.name, price: item.price, quantity: qty[item.id] ?? 1 })}
+                          onClick={() => {
+                            const sel = selected[item.id] || new Set<number>();
+                            const mods = Array.from(sel);
+                            const det = (modsByItem[item.id] || []).filter((m) => sel.has(m.id));
+                            add({ item_id: item.id, name: item.name, price: item.price, quantity: qty[item.id] ?? 1, modifiers: mods, mods_detail: det });
+                          }}
                           disabled={item.available === false || ((item as any).stock !== null && typeof (item as any).stock === 'number' && (item as any).stock <= 0)}
                           className="shadow-sm hover:shadow ring-1 ring-amber-300/30"
                           aria-live="polite"
@@ -140,3 +161,29 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
     </div>
   );
 }
+
+
+
+function Extras({ menuItemId, currency, selected, onToggle, onLoaded }: { menuItemId: number; currency: string; selected?: Set<number>; onToggle: (id: number) => void; onLoaded: (mods: { id: number; name: string; price_delta: number }[]) => void; }) {
+  const { data = [], isLoading } = useModifiers(menuItemId);
+  React.useEffect(() => { onLoaded(data); }, [data]);
+  if (isLoading || !data.length) return null;
+  return (
+    <div className="mb-3">
+      <div className="text-xs font-medium text-amber-800 mb-1">Extras</div>
+      <div className="flex flex-wrap gap-2">
+        {data.map((m) => (
+          <label key={m.id} className="text-xs border rounded-full px-2 py-1 cursor-pointer transition">
+            <input type="checkbox" className="mr-1 align-middle" checked={!!selected?.has(m.id)} onChange={() => onToggle(m.id)} />
+            {m.name} (<span className="tabular-nums">{currency}{Number(m.price_delta || 0).toFixed(2)}</span>)
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
