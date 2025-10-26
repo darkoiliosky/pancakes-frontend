@@ -31,6 +31,13 @@ export default function Cart() {
                 <li key={it.item_id} className="py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium truncate max-w-[260px]">{it.name}</div>
+                    {(it.mods_detail && it.mods_detail.length > 0) && (
+                      <ul className="text-xs text-gray-600 mt-1">
+                        {it.mods_detail.map((m) => (
+                          <li key={m.id}>+ {m.name}</li>
+                        ))}
+                      </ul>
+                    )}
                     <div className="text-sm text-gray-600">{formatCurrency(it.price, currency)} each</div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -57,7 +64,7 @@ export default function Cart() {
                       Remove
                     </button>
                   </div>
-                  <div className="font-semibold w-24 text-right">{formatCurrency(it.price * it.quantity, currency)}</div>
+                  <div className="font-semibold w-24 text-right">{formatCurrency(((it.mods_detail || []).reduce((a, m)=>a + (Number(m.price_delta)||0), 0) + it.price) * it.quantity, currency)}</div>
                 </li>
               ))}
             </ul>

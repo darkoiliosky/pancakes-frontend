@@ -4,8 +4,10 @@ import { useToast } from "../../context/ToastContext";
 export type CartItem = {
   item_id: number;
   name: string;
-  price: number;
+  price: number; // base price
   quantity: number;
+  modifiers?: number[]; // IDs for checkout
+  mods_detail?: { id: number; name: string; price_delta: number }[]; // display + totals
 };
 
 type CartState = {
@@ -62,6 +64,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           name: typeof it.name === "string" ? it.name : "",
           price: it.price,
           quantity: it.quantity,
+          modifiers: Array.isArray(it.modifiers) ? (it.modifiers as number[]).filter((x) => typeof x === "number") : undefined,
+          mods_detail: Array.isArray(it.mods_detail)
+            ? (it.mods_detail as any[])
+                .filter((m) => m && typeof m.id === "number" && typeof m.name === "string")
+                .map((m) => ({ id: Number(m.id), name: String(m.name), price_delta: Number(m.price_delta || 0) }))
+            : undefined,
         }));
       setState({ items });
     } catch {}
@@ -78,15 +86,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     (payload: Omit<CartItem, "quantity"> & { quantity?: number }) => {
       const qty = clamp(Number(payload.quantity ?? 1) || 1, 1, 99);
       setState((cur) => {
-        const idx = cur.items.findIndex((it) => it.item_id === payload.item_id);
-        if (idx >= 0) {
-          const next = [...cur.items];
+        const keyOf = (it: CartItem) => `${it.item_id}|${(it.modifiers || []).slice().sort((a,b)=>a-b).join(",")}`;
+        const incomingKey = keyOf(payload as CartItem);
+        const idx = cur.items.findIndex((it) => keyOf(it) === incomingKey);
           next[idx] = { ...next[idx], quantity: clamp(next[idx].quantity + qty, 1, 99) };
           toast.success(`Added ${qty} × ${payload.name}`);
           return { items: next };
         }
         toast.success(`Added ${qty} × ${payload.name}`);
-        return { items: [...cur.items, { item_id: payload.item_id, name: payload.name, price: payload.price, quantity: qty }] };
+        return { items: [...cur.items, { item_id: payload.item_id, name: payload.name, price: payload.price, quantity: qty, modifiers: (payload as any).modifiers, mods_detail: (payload as any).mods_detail }] };
       });
     },
     [toast]
@@ -126,7 +134,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setState({ items: [] });
   }, []);
 
-  const subtotal = useMemo(() => state.items.reduce((s, it) => s + it.price * it.quantity, 0), [state.items]);
+  const subtotal = useMemo(() => state.items.reduce((s, it) => { const extra = (it.mods_detail || []).reduce((a, m) => a + (Number(m.price_delta) || 0), 0); return s + (it.price + extra) * it.quantity; }, 0), [state.items]);
   const count = useMemo(() => state.items.reduce((s, it) => s + it.quantity, 0), [state.items]);
 
   const value = useMemo<CartContextValue>(
@@ -142,3 +150,8 @@ export function useCart(): CartContextValue {
   if (!ctx) throw new Error("useCart must be used within CartProvider");
   return ctx;
 }
+
+
+
+
+

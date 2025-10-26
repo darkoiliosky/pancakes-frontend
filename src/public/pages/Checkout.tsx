@@ -45,7 +45,7 @@ export default function Checkout() {
   const onPlace = async () => {
     try {
       const payload: any = {
-        items: items.map((it) => ({ item_id: it.item_id, quantity: it.quantity })),
+        items: items.map((it) => ({ item_id: it.item_id, quantity: it.quantity, modifiers: (it as any).modifiers || [] })),
         order_type: orderType,
         phone: phone.trim(),
       };
@@ -166,3 +166,4 @@ export default function Checkout() {
     </div>
   );
 }
+
