@@ -18,14 +18,19 @@ const listSchema = z.object({ items: z.array(menuItemSchema) });
 export type PublicMenuItem = z.infer<typeof menuItemSchema>;
 
 async function fetchMenu(params?: { category?: string; available?: boolean; q?: string }) {
-  const res = await apiClient.get("/api/menu", { params });
   try {
-    const parsed = listSchema.parse(res.data);
-    return parsed.items;
+    const res = await apiClient.get("/api/menu", { params });
+    try {
+      const parsed = listSchema.parse(res.data);
+      return parsed.items;
+    } catch {
+      // If backend returns an array directly
+      const arr = Array.isArray(res.data) ? res.data : [];
+      return z.array(menuItemSchema).parse(arr);
+    }
   } catch {
-    // If backend returns an array directly
-    const arr = Array.isArray(res.data) ? res.data : [];
-    return z.array(menuItemSchema).parse(arr);
+    // On any failure, return empty list
+    return [] as PublicMenuItem[];
   }
 }
 

@@ -47,6 +47,9 @@ export function useLogin() {
     onSuccess: (data) => {
       const user = data.user;
       queryClient.setQueryData(["auth", "me"], user);
+      // Ensure any subscribers refetch with server as source of truth
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      queryClient.refetchQueries({ queryKey: ["auth", "me"], type: "active" });
     },
   });
 }

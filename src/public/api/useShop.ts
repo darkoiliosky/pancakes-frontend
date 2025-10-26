@@ -19,17 +19,21 @@ const getSchema = z.object({ settings: shopSchema.nullable().optional() });
 export type PublicShopSettings = z.infer<typeof shopSchema>;
 
 async function fetchShop(): Promise<PublicShopSettings> {
-  const res = await apiClient.get("/api/shop");
-  // Support both {settings: {...}} and direct {...}
   try {
-    const parsed = getSchema.parse(res.data);
-    return parsed.settings ?? shopSchema.parse({});
+    const res = await apiClient.get("/api/shop");
+    // Support both {settings: {...}} and direct {...}
+    try {
+      const parsed = getSchema.parse(res.data);
+      return parsed.settings ?? shopSchema.parse({});
+    } catch {
+      return shopSchema.parse(res.data ?? {});
+    }
   } catch {
-    return shopSchema.parse(res.data ?? {});
+    // On any failure, return safe defaults
+    return shopSchema.parse({});
   }
 }
 
 export function useShop() {
   return useQuery({ queryKey: ["shop", "public"], queryFn: fetchShop, staleTime: 60_000 });
 }
-

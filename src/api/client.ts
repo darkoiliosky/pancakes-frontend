@@ -2,7 +2,8 @@ import axios from "axios";
 import { queryClient } from "../lib/queryClient";
 
 const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_URL,
+  // Fallback to localhost:5000 in dev if env not set
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });

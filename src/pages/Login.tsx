@@ -25,8 +25,9 @@ function Login() {
     try {
       await login(data);
       navigate("/");
-    } catch (error: any) {
-      alert("РќРµСѓСЃРїРµС€РЅР° РЅР°СР°РІР°");
+        } catch (error: any) {
+      const message = (error?.response?.data?.error as string) || (error?.message as string) || "Најавата не успеа";
+      alert(message);
       console.error(error);
     }
   };

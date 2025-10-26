@@ -37,15 +37,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<CartState>({ items: [] });
   const hydratedRef = useRef(false);
 
-  // Type guard for CartItem shape
-  function isCartItem(it: any): it is CartItem {
+  // Type guards and normalizers
+  function isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+  }
+
+  function isCartItem(it: unknown): it is CartItem {
+    if (!isObject(it)) return false;
     return (
-      it &&
       typeof it.item_id === "number" &&
       typeof it.price === "number" &&
       typeof it.quantity === "number" &&
       (typeof it.name === "string" || typeof it.name === "undefined")
     );
+  }
+
+  function normalizeModifiers(input: unknown): number[] | undefined {
+    if (!Array.isArray(input)) return undefined;
+    const nums = (input as unknown[]).filter((x): x is number => typeof x === "number");
+    return nums.length ? nums : undefined;
+  }
+
+  function isModLike(m: unknown): m is { id: number | string; name: string; price_delta?: number | string } {
+    if (!isObject(m)) return false;
+    return (typeof m.id === "number" || typeof m.id === "string") && typeof m.name === "string";
+  }
+
+  function normalizeModsDetail(input: unknown): { id: number; name: string; price_delta: number }[] | undefined {
+    if (!Array.isArray(input)) return undefined;
+    const list = (input as unknown[])
+      .filter(isModLike)
+      .map((m) => ({ id: Number(m.id), name: m.name, price_delta: Number(m.price_delta || 0) }));
+    return list.length ? list : undefined;
   }
 
   // Hydrate from localStorage once
@@ -55,21 +78,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<CartState> | any;
-      const itemsRaw: unknown[] = Array.isArray((parsed as any)?.items) ? (parsed as any).items : [];
-      const items: CartItem[] = (itemsRaw as any[])
-        .filter((it: any): it is CartItem => isCartItem(it))
-        .map((it: any) => ({
+      const parsed = JSON.parse(raw) as { items?: unknown };
+      const itemsRaw: unknown[] = Array.isArray(parsed.items) ? (parsed.items as unknown[]) : [];
+      const items: CartItem[] = itemsRaw
+        .filter(isCartItem)
+        .map((it) => ({
           item_id: it.item_id,
           name: typeof it.name === "string" ? it.name : "",
           price: it.price,
           quantity: it.quantity,
-          modifiers: Array.isArray(it.modifiers) ? (it.modifiers as number[]).filter((x) => typeof x === "number") : undefined,
-          mods_detail: Array.isArray(it.mods_detail)
-            ? (it.mods_detail as any[])
-                .filter((m) => m && typeof m.id === "number" && typeof m.name === "string")
-                .map((m) => ({ id: Number(m.id), name: String(m.name), price_delta: Number(m.price_delta || 0) }))
-            : undefined,
+          modifiers: normalizeModifiers(it.modifiers),
+          mods_detail: normalizeModsDetail(it.mods_detail),
         }));
       setState({ items });
     } catch {}
@@ -89,12 +108,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const keyOf = (it: CartItem) => `${it.item_id}|${(it.modifiers || []).slice().sort((a,b)=>a-b).join(",")}`;
         const incomingKey = keyOf(payload as CartItem);
         const idx = cur.items.findIndex((it) => keyOf(it) === incomingKey);
+        if (idx >= 0) {
+          const next = [...cur.items];
           next[idx] = { ...next[idx], quantity: clamp(next[idx].quantity + qty, 1, 99) };
-          toast.success(`Added ${qty} × ${payload.name}`);
+          toast.success(`Added ${qty} x ${payload.name}`);
           return { items: next };
         }
-        toast.success(`Added ${qty} × ${payload.name}`);
-        return { items: [...cur.items, { item_id: payload.item_id, name: payload.name, price: payload.price, quantity: qty, modifiers: (payload as any).modifiers, mods_detail: (payload as any).mods_detail }] };
+        toast.success(`Added ${qty} x ${payload.name}`);
+        return {
+          items: [
+            ...cur.items,
+            {
+              item_id: payload.item_id,
+              name: payload.name,
+              price: payload.price,
+              quantity: qty,
+              modifiers: payload.modifiers,
+              mods_detail: payload.mods_detail,
+            },
+          ],
+        };
       });
     },
     [toast]
@@ -134,7 +167,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setState({ items: [] });
   }, []);
 
-  const subtotal = useMemo(() => state.items.reduce((s, it) => { const extra = (it.mods_detail || []).reduce((a, m) => a + (Number(m.price_delta) || 0), 0); return s + (it.price + extra) * it.quantity; }, 0), [state.items]);
+  const subtotal = useMemo(
+    () =>
+      state.items.reduce((s, it) => {
+        const extra = (it.mods_detail || []).reduce((a, m) => a + (Number(m.price_delta) || 0), 0);
+        return s + (it.price + extra) * it.quantity;
+      }, 0),
+    [state.items]
+  );
+
   const count = useMemo(() => state.items.reduce((s, it) => s + it.quantity, 0), [state.items]);
 
   const value = useMemo<CartContextValue>(
@@ -150,8 +191,4 @@ export function useCart(): CartContextValue {
   if (!ctx) throw new Error("useCart must be used within CartProvider");
   return ctx;
 }
-
-
-
-
 
