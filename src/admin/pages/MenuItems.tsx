@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Switch } from "../../components/ui/switch";
 import { moneyFormat } from "../../utils/format";
 import MenuItemModifiers from "../components/MenuItemModifiers";
+import { useToast } from "../../context/ToastContext";
 
 const schema = z.object({
   name: z.string().min(1),
@@ -27,6 +28,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function MenuItems() {
+  const toast = useToast();
   const [category, setCategory] = useState<string>("");
   const [available, setAvailable] = useState<string>("");
   const [q, setQ] = useState<string>("");
@@ -79,7 +81,16 @@ export default function MenuItems() {
       cell: ({ row }) => (
         <div className="flex gap-2">
           <button className="px-2 py-1 text-xs rounded bg-amber-100 text-amber-700 hover:bg-amber-200" onClick={() => startEdit(row.original)}>Edit</button>
-          <button className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200" onClick={() => deleteM.mutate({ id: row.original.id })}>Delete</button>
+          <button
+            className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200"
+            onClick={() => {
+              const ok = window.confirm("Are you sure you want to delete this product?");
+              if (!ok) return;
+              deleteM.mutate({ id: row.original.id });
+            }}
+          >
+            Delete
+          </button>
         </div>
       ),
     },
@@ -191,7 +202,7 @@ export default function MenuItems() {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) { setImageBase64(""); return; }
-                    if (file.size > 5 * 1024 * 1024) { alert("Max 5MB"); return; }
+                    if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
                     const reader = new FileReader();
                     reader.onload = () => {
                       const result = String(reader.result || "");

@@ -19,7 +19,7 @@ export function useDashboardStats() {
   // last 7 days orders
   const from7 = isoDate(-6); // include today
   const to0 = isoDate(0);
-  const orders7 = useAdminOrders({ from: from7, to: to0, status: "delivered" });
+  const orders7 = useAdminOrders({ from: from7, to: to0, status: "delivered", pageSize: 1000 });
 
   // pending orders count
   const pendingOrders = useAdminOrders({ status: "pending" });

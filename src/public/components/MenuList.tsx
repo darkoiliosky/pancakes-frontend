@@ -23,6 +23,45 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
   const isCustomer = role === "customer";
   const isAdmin = role === "admin";
 
+  // Detect shop closed (same logic as Checkout)
+  function isShopClosed(): boolean {
+    const s: any = shop || {};
+    if (s.is_open === false) return true;
+    try {
+      const cu = s.closed_until ? new Date(s.closed_until) : null;
+      if (cu && cu.getTime() > Date.now()) return true;
+    } catch {}
+    const wh = s.working_hours_json;
+    if (!wh || typeof wh !== 'object') return false;
+    const days = ["sun","mon","tue","wed","thu","fri","sat"];
+    const now = new Date();
+    const d = days[now.getDay()];
+    const raw = wh[d] ?? wh[String(now.getDay())];
+    const parseRanges = (val: any): Array<[number, number]> => {
+      const out: Array<[number, number]> = [];
+      const add = (s: string) => {
+        String(s).split(',').forEach((chunk) => {
+          const [a,b] = String(chunk).trim().split('-');
+          if (!a || !b) return;
+          const [ah,am] = a.split(':').map(Number);
+          const [bh,bm] = b.split(':').map(Number);
+          const start = (Number.isFinite(ah)?ah:0)*60 + (Number.isFinite(am)?am:0);
+          const end = (Number.isFinite(bh)?bh:0)*60 + (Number.isFinite(bm)?bm:0);
+          if (end>start) out.push([start,end]);
+        });
+      };
+      if (typeof val === 'string') add(val);
+      else if (Array.isArray(val)) val.forEach((x) => typeof x === 'string' && add(x));
+      return out;
+    };
+    const ranges = parseRanges(raw);
+    if (ranges.length === 0) return false;
+    const mins = now.getHours()*60 + now.getMinutes();
+    const open = ranges.some(([s,e]) => mins>=s && mins<e);
+    return !open;
+  }
+  const shopClosed = isShopClosed();
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -106,7 +145,6 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                     )}
                     <Extras
                       menuItemId={item.id}
-                      currency={currency}
                       selected={selected[item.id]}
                       onLoaded={(mods) => setModsByItem((m) => ({ ...m, [item.id]: mods }))}
                       onToggle={(id) => {
@@ -127,19 +165,25 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
                         className="w-20 border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-300"
                       />
                       {isCustomer ? (
-                        <Button
-                          onClick={() => {
-                            const sel = selected[item.id] || new Set<number>();
-                            const mods = Array.from(sel);
-                            const det = (modsByItem[item.id] || []).filter((m) => sel.has(m.id));
-                            add({ item_id: item.id, name: item.name, price: item.price, quantity: qty[item.id] ?? 1, modifiers: mods, mods_detail: det });
-                          }}
-                          disabled={item.available === false || ((item as any).stock !== null && typeof (item as any).stock === 'number' && (item as any).stock <= 0)}
-                          className="shadow-sm hover:shadow ring-1 ring-amber-300/30"
-                          aria-live="polite"
-                        >
-                          {item.available === false ? "Unavailable" : (((item as any).stock !== null && typeof (item as any).stock === 'number' && (item as any).stock <= 0) ? "Out of stock" : "Add to Cart")}
-                        </Button>
+                        shopClosed ? (
+                          <div className="flex-1 text-center text-xs text-gray-600 bg-gray-50 border rounded px-3 py-2">
+                            🕒 The shop is currently closed. We’ll open again soon!
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => {
+                              const sel = selected[item.id] || new Set<number>();
+                              const mods = Array.from(sel);
+                              const det = (modsByItem[item.id] || []).filter((m) => sel.has(m.id));
+                              add({ item_id: item.id, name: item.name, price: item.price, quantity: qty[item.id] ?? 1, modifiers: mods, mods_detail: det });
+                            }}
+                            disabled={item.available === false || ((item as any).stock !== null && typeof (item as any).stock === 'number' && (item as any).stock <= 0)}
+                            className="shadow-sm hover:shadow ring-1 ring-amber-300/30"
+                            aria-live="polite"
+                          >
+                            {item.available === false ? "Unavailable" : (((item as any).stock !== null && typeof (item as any).stock === 'number' && (item as any).stock <= 0) ? "Out of stock" : "Add to Cart")}
+                          </Button>
+                        )
                       ) : isAdmin ? (
                         <Link to={`/admin/menu-items?edit=${item.id}`} className="inline-flex">
                           <Button className="shadow-sm hover:shadow ring-1 ring-amber-300/30">Edit menu</Button>
@@ -164,9 +208,9 @@ export default function MenuList({ items, isLoading, filters }: { items: PublicM
 
 
 
-function Extras({ menuItemId, currency, selected, onToggle, onLoaded }: { menuItemId: number; currency: string; selected?: Set<number>; onToggle: (id: number) => void; onLoaded: (mods: { id: number; name: string; price_delta: number }[]) => void; }) {
+function Extras({ menuItemId, selected, onToggle, onLoaded }: { menuItemId: number; selected?: Set<number>; onToggle: (id: number) => void; onLoaded: (mods: { id: number; name: string; price_delta: number }[]) => void; }) {
   const { data = [], isLoading } = useModifiers(menuItemId);
-  React.useEffect(() => { onLoaded(data); }, [data]);
+  React.useEffect(() => { onLoaded(data); }, [data, onLoaded]);
   if (isLoading || !data.length) return null;
   return (
     <div className="mb-3">
@@ -175,15 +219,13 @@ function Extras({ menuItemId, currency, selected, onToggle, onLoaded }: { menuIt
         {data.map((m) => (
           <label key={m.id} className="text-xs border rounded-full px-2 py-1 cursor-pointer transition">
             <input type="checkbox" className="mr-1 align-middle" checked={!!selected?.has(m.id)} onChange={() => onToggle(m.id)} />
-            {m.name} (<span className="tabular-nums">{currency}{Number(m.price_delta || 0).toFixed(2)}</span>)
+            {m.name} (<span className="tabular-nums">{formatCurrency(Number(m.price_delta || 0))}</span>)
           </label>
         ))}
       </div>
     </div>
   );
 }
-
-
 
 
 

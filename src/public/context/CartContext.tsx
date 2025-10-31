@@ -26,7 +26,7 @@ type CartContextValue = {
 
 const STORAGE_KEY = "cart:v1";
 
-const CartContext = createContext<CartContextValue | undefined>(undefined);
+export const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -191,4 +191,3 @@ export function useCart(): CartContextValue {
   if (!ctx) throw new Error("useCart must be used within CartProvider");
   return ctx;
 }
-

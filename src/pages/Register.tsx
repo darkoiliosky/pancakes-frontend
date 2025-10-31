@@ -3,13 +3,15 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import apiClient from "../api/client";
+import { useToast } from "../context/ToastContext";
 
 const registerSchema = z.object({
-  name: z.string().min(2, "Името мора да содржи најмалку 2 карактери"),
-  email: z.string().email("Внеси валиден емаил"),
-  password: z.string().min(6, "Лозинката мора да содржи најмалку 6 карактери"),
-  phone: z.string().min(6, "Внесете валиден телефонски број"),
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  phone: z.string().min(6, "Enter a valid phone number"),
 });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -17,6 +19,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 function Register() {
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const toast = useToast();
+  const invite = params.get("invite") || "";
+  const inviteEmail = params.get("email") || "";
 
   const {
     register,
@@ -26,27 +32,33 @@ function Register() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser(data);
-      alert(
-        "✅ Успешна регистрација! Провери го е-пошта сандачето и кликни на линкот за потврда."
-      );
-      navigate("/login"); // ✅ одиме на Login, не на Home
+      if (invite) {
+        await apiClient.post("/api/users/register-invite", { ...data, email: inviteEmail || data.email, invite_token: invite });
+        toast.success("Invitation accepted. You can now log in as courier.");
+      } else {
+        await registerUser(data);
+        toast.success("Registration successful. Please verify your email.");
+      }
+      navigate("/login");
     } catch (error: any) {
-      alert("❌ Грешка при регистрација");
-      console.error(error);
+      toast.error(error?.response?.data?.error || error?.message || "Registration failed");
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#fffdf8]">
       <div className="w-full max-w-md bg-white p-8 shadow-md rounded-2xl">
-        <h1 className="text-2xl font-bold mb-6 text-center text-brand">
-          Регистрација
-        </h1>
+        <h1 className="text-2xl font-bold mb-6 text-center text-brand">Register</h1>
+
+        {invite && (
+          <div className="mb-4 rounded bg-blue-50 border border-blue-200 text-blue-800 text-sm px-3 py-2">
+            Courier invitation detected for <b>{inviteEmail}</b>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
-            <label className="block mb-1 text-sm font-medium">Име</label>
+            <label className="block mb-1 text-sm font-medium">Name</label>
             <input
               type="text"
               {...register("name")}
@@ -58,43 +70,39 @@ function Register() {
           </div>
 
           <div>
-            <label className="block mb-1 text-sm font-medium">Е-пошта</label>
+            <label className="block mb-1 text-sm font-medium">Email</label>
             <input
               type="email"
+              defaultValue={inviteEmail}
+              disabled={!!invite}
               {...register("email")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
             />
             {errors.email && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.email.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
             )}
           </div>
 
           <div>
-            <label className="block mb-1 text-sm font-medium">Лозинка</label>
+            <label className="block mb-1 text-sm font-medium">Password</label>
             <input
               type="password"
               {...register("password")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
             />
             {errors.password && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.password.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
             )}
           </div>
           <div>
-            <label className="block mb-1 text-sm font-medium">Телефон</label>
+            <label className="block mb-1 text-sm font-medium">Phone</label>
             <input
               type="text"
               {...register("phone")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
             />
             {errors.phone && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.phone.message}
-              </p>
+              <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
             )}
           </div>
           <button
@@ -102,7 +110,7 @@ function Register() {
             disabled={isSubmitting}
             className="bg-brand hover:bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-60"
           >
-            {isSubmitting ? "Се регистрираш..." : "Регистрирај се"}
+            {isSubmitting ? "Submitting..." : "Create account"}
           </button>
         </form>
       </div>
@@ -111,3 +119,4 @@ function Register() {
 }
 
 export default Register;
+

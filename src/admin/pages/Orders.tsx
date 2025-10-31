@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAdminOrders, type AdminOrder, useUpdateOrderStatus } from "../api/useAdminOrders";
 import { useAdminShop } from "../api/useAdminShop";
 import DataTable from "../components/DataTable";
@@ -11,7 +11,14 @@ import { parseAxiosError } from "../../api/errors";
 import { useCouriers } from "../api/useCouriers";
 import { useCreateDelivery } from "../api/useAdminDeliveries";
 
-const statuses = ["pending", "accepted", "preparing", "ready", "delivering", "delivered", "cancelled"] as const;
+const statusesDelivery = ["pending", "accepted", "preparing", "ready", "delivering", "delivered", "cancelled"] as const;
+const statusesPickup = ["pending", "preparing", "ready", "picked_up", "cancelled"] as const;
+type StatusDelivery = typeof statusesDelivery[number];
+type StatusPickup = typeof statusesPickup[number];
+type Status = StatusDelivery | StatusPickup;
+const allStatuses: Status[] = Array.from(new Set([...(statusesDelivery as readonly string[]), ...(statusesPickup as readonly string[])])) as Status[];
+
+type OrderItemDisplay = { name: string; price: number; quantity: number; subtotal?: number; modifiers?: { name: string; price_delta: number }[] };
 
 function formatDateTime(iso?: string) {
   if (!iso) return "";
@@ -35,7 +42,7 @@ function StatusBadge({ s }: { s: string }) {
       ? "bg-blue-100 text-blue-800"
       : s === "delivering"
       ? "bg-purple-100 text-purple-800"
-      : s === "delivered"
+      : s === "delivered" || s === "picked_up"
       ? "bg-green-100 text-green-800"
       : "bg-red-100 text-red-800";
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c(s)}`}>{s}</span>;
@@ -81,19 +88,23 @@ export default function Orders() {
   }
 
   const [loadingItemsId, setLoadingItemsId] = useState<number | null>(null);
+  function hasOrdersRows(r: unknown): r is { orders: AdminOrder[] } {
+    return typeof r === 'object' && r !== null && 'orders' in r && Array.isArray((r as { orders: unknown }).orders);
+  }
   async function openWithItems(order: AdminOrder) {
     try {
       setLoadingItemsId(order.id);
       const res = await apiClient.get(`/api/admin/orders/${order.id}/items`);
       const items = Array.isArray(res.data?.items) ? res.data.items : [];
       // Update cache so count and modal reflect latest items
-      const prev = qc.getQueriesData<any>({ queryKey: ["admin", "orders"] });
+      const prev = qc.getQueriesData({ queryKey: ["admin", "orders"] });
       prev.forEach(([key, rows]) => {
         if (Array.isArray(rows)) {
-          const next = rows.map((o) => (o.id === order.id ? { ...o, items, items_count: items.length } : o));
-          qc.setQueryData(key, next as AdminOrder[]);
-        } else if (rows && Array.isArray(rows.orders)) {
-          const next = { ...rows, orders: rows.orders.map((o: any) => (o.id === order.id ? { ...o, items, items_count: items.length } : o)) };
+          const list = rows as AdminOrder[];
+          const next = list.map((o) => (o.id === order.id ? { ...o, items, items_count: items.length } : o));
+          qc.setQueryData(key, next);
+        } else if (hasOrdersRows(rows)) {
+          const next = { ...rows, orders: rows.orders.map((o) => (o.id === order.id ? { ...o, items, items_count: items.length } : o)) };
           qc.setQueryData(key, next);
         }
       });
@@ -109,7 +120,16 @@ export default function Orders() {
   function getTotal(o: AdminOrder): number {
     return typeof o.total_price === "number" && !isNaN(o.total_price)
       ? o.total_price
-      : (o.items || []).reduce((s: number, it: any) => s + it.price * it.quantity, 0);
+      : (o.items || []).reduce((s: number, it: OrderItemDisplay) => s + (typeof it.subtotal === 'number' ? it.subtotal : (it.price * it.quantity)), 0);
+  }
+
+  function computeItemSubtotal(it: any): number {
+    if (typeof (it as any)?.subtotal === 'number') return Number((it as any).subtotal);
+    const price = Number((it as any)?.price || 0);
+    const qty = Number((it as any)?.quantity || 0);
+    const mods = Array.isArray((it as any)?.modifiers) ? (it as any).modifiers : [];
+    const modsSum = mods.reduce((acc: number, m: any) => acc + Number((m?.price_delta) || 0), 0);
+    return (price + modsSum) * qty;
   }
 
   function exportCsv() {
@@ -143,20 +163,22 @@ export default function Orders() {
               bv = (b as Record<string, unknown>)[id];
           }
           if (av === bv) continue;
-          const cmp = (av as any) > (bv as any) ? 1 : (av as any) < (bv as any) ? -1 : 0;
+          const avs = String(av ?? "");
+          const bvs = String(bv ?? "");
+          const cmp = avs > bvs ? 1 : avs < bvs ? -1 : 0;
           return desc ? -cmp : cmp;
         }
         return 0;
       });
-      const safeRows = sortedAll as AdminOrder[];
+          const safeRows = sortedAll as AdminOrder[];
       const header = ["id", "customer_name", "customer_email", "status", "type", "created_at", "updated_at", "total"];
       const lines = [header.join(",")];
-      for (const o of safeRows) {
-        const total = getTotal(o);
-        const rec = [
-          o.id,
-          (o.user?.name || ""),
-          (o.user?.email || ""),
+          for (const o of safeRows) {
+            const total = getTotal(o);
+            const rec = [
+              o.id,
+              (o.user?.name || ""),
+              (o.user?.email || ""),
           (o.status || ""),
           (o.order_type || ""),
           (o.created_at || ""),
@@ -179,7 +201,7 @@ export default function Orders() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("CSV exported");
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error("CSV export failed");
     }
   }
@@ -226,7 +248,8 @@ export default function Orders() {
           {(() => {
             const o = row.original as AdminOrder;
             const itemsLen = Array.isArray(o.items) ? o.items.length : 0;
-            const count = itemsLen > 0 ? itemsLen : (typeof (o as any).items_count === "number" ? (o as any).items_count : 0);
+            const ic = (o as unknown as { items_count?: number }).items_count;
+            const count = itemsLen > 0 ? itemsLen : (typeof ic === 'number' ? ic : 0);
             return `${count} items`;
           })()}
         </button>
@@ -240,7 +263,12 @@ export default function Orders() {
         const o = row.original as AdminOrder;
         const total = typeof o.total_price === "number" && !isNaN(o.total_price)
           ? o.total_price
-          : (o.items || []).reduce((s, it: any) => s + it.price * it.quantity, 0);
+          : (o.items || []).reduce((s, it: any) => {
+              const sub: number = typeof (it as any).subtotal === 'number'
+                ? Number((it as any).subtotal)
+                : Number(it.price || 0) * Number(it.quantity || 0);
+              return s + sub;
+            }, 0);
         return <span className="font-semibold">{moneyFormat(total, currency)}</span>;
       },
     },
@@ -250,7 +278,7 @@ export default function Orders() {
       header: "Actions",
       cell: ({ row }) => {
         const st = (row.original.status || "").toLowerCase();
-        const locked = st === "delivered" || st === "cancelled";
+        const locked = st === "delivered" || st === "picked_up" || st === "cancelled";
         return (
           <div className="flex items-center gap-2">
             <button
@@ -276,17 +304,18 @@ export default function Orders() {
               disabled={locked || updateStatus.isPending}
               title={locked ? "Status cannot be changed after delivery/cancellation" : (updateStatus.isPending ? "Updating..." : undefined)}
             >
-              {statuses.map((s) => {
+              {(row.original.order_type === 'pickup' ? statusesPickup : statusesDelivery).map((s: Status) => {
                 const order = row.original as AdminOrder;
-                const curIdx = statuses.indexOf((order.status || "") as any);
-                const idx = statuses.indexOf(s as any);
+                const list = (order.order_type === 'pickup' ? statusesPickup : statusesDelivery) as readonly string[];
+                const curIdx = list.indexOf((order.status || "") as string);
+                const idx = list.indexOf(s as string);
                 const disabled = s !== "cancelled" && (idx < curIdx);
                 return (
                   <option key={s} value={s} disabled={disabled}>{s}</option>
                 );
               })}
             </select>
-            {row.original.courier?.name ? (
+            {(row.original.order_type === 'pickup') ? null : (row.original.courier?.name ? (
               <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1">Courier: {row.original.courier.name}</span>
             ) : (
               <button
@@ -298,26 +327,31 @@ export default function Orders() {
               >
                 Assign courier
               </button>
-            )}
-            {(["pending", "accepted", "preparing", "ready", "delivering"] as string[]).includes(st) && (
+            ))}
+            {(() => {
+              const isPickup = (row.original.order_type || 'delivery') === 'pickup';
+              const active = isPickup ? ["pending","preparing","ready"] : ["pending","accepted","preparing","ready","delivering"];
+              return active.includes(st);
+            })() && (
               <button
               className="px-2 py-1 text-xs rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
               onClick={async () => {
-                const ok = window.confirm("Mark this order as delivered?");
+                const isPickup = (row.original.order_type || 'delivery') === 'pickup';
+                const ok = window.confirm(isPickup ? "Mark this order as picked up?" : "Mark this order as delivered?");
                 if (!ok) return;
                 try {
-                  await updateStatus.mutateAsync({ id: row.original.id, status: "delivered" });
-                  toast.success("Order marked as delivered");
+                  await updateStatus.mutateAsync({ id: row.original.id, status: ((row.original.order_type || 'delivery') === 'pickup') ? "picked_up" : "delivered" });
+                  toast.success(((row.original.order_type || 'delivery') === 'pickup') ? "Order marked as picked up" : "Order marked as delivered");
                 } catch (err) {
                   toast.error(parseAxiosError(err));
                 } finally {
                   refresh();
                 }
               }}
-              aria-label="Mark delivered"
+              aria-label={(row.original.order_type || 'delivery') === 'pickup' ? "Mark picked up" : "Mark delivered"}
               disabled={updateStatus.isPending}
             >
-              Mark delivered
+              {(row.original.order_type || 'delivery') === 'pickup' ? 'Mark picked up' : 'Mark delivered'}
             </button>
             )}
           </div>
@@ -352,7 +386,7 @@ export default function Orders() {
         <input className="border rounded px-3 py-2 md:col-span-2" placeholder="Search name/email" value={user} onChange={(e) => setUser(e.target.value)} />
         <select className="border rounded px-3 py-2" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>
-          {statuses.map((s) => (
+          {allStatuses.map((s: Status) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
@@ -390,7 +424,7 @@ export default function Orders() {
               )}
             </div>
           ) : (
-            <DataTable columns={columns} data={pageData} onTableReady={(t) => (tableRef.current = t)} sorting={sorting} onSortingChange={(s:any) => { setSorting(Array.isArray(s) ? s : []); setPage(1); }} manualSort />
+            <DataTable columns={columns} data={pageData} onTableReady={(t) => (tableRef.current = t)} sorting={sorting} onSortingChange={(s: SortingState) => { setSorting(s); setPage(1); }} manualSort />
           )}
           <div className="flex items-center justify-between text-sm">
             <div>
@@ -439,9 +473,10 @@ export default function Orders() {
                       modalUpdatingRef.current = true;
                       setModalUpdating(true);
                       const nextStatus = e.target.value;
+                      if (!open) return;
                       const prevOpen = open;
                       // Optimistically reflect new status in modal, same as table does via cache
-                      setOpen({ ...open, status: nextStatus } as any);
+                      setOpen({ ...prevOpen, status: nextStatus });
                       try {
                         await updateStatus.mutateAsync({ id: open.id, status: nextStatus });
                       } catch (err) {
@@ -456,9 +491,10 @@ export default function Orders() {
                     aria-label="Change status in modal"
                     disabled={updateStatus.isPending || modalUpdating}
                   >
-                    {statuses.map((s) => {
-                      const curIdx = statuses.indexOf((open.status || "") as any);
-                      const idx = statuses.indexOf(s as any);
+                    {(open.order_type === 'pickup' ? statusesPickup : statusesDelivery).map((s: Status) => {
+                      const list = (open.order_type === 'pickup' ? statusesPickup : statusesDelivery) as readonly string[];
+                      const curIdx = list.indexOf((open.status || "") as string);
+                      const idx = list.indexOf(s as string);
                       const disabled = s !== "cancelled" && (idx < curIdx);
                       return (
                         <option key={s} value={s} disabled={disabled}>{s}</option>
@@ -475,11 +511,11 @@ export default function Orders() {
               </div>
               <div>
                 <div className="font-medium">Created</div>
-                <div>{formatDateTime(open.created_at as any)}</div>
+                <div>{formatDateTime(open.created_at)}</div>
               </div>
               <div>
                 <div className="font-medium">Updated</div>
-                <div>{open.updated_at ? formatDateTime(open.updated_at as any) : ""}</div>
+                <div>{open.updated_at ? formatDateTime(open.updated_at) : ""}</div>
               </div>
               <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
@@ -517,14 +553,38 @@ export default function Orders() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(open.items || []).map((it, idx: number) => (
-                      <tr key={idx} className="even:bg-amber-50/20">
-                        <td className="px-3 py-2">{it.name}</td>
-                        <td className="px-3 py-2">{it.quantity}</td>
-                        <td className="px-3 py-2">{moneyFormat(it.price, currency)}</td>
-                        <td className="px-3 py-2">{moneyFormat(it.price * it.quantity, currency)}</td>
-                      </tr>
-                    ))}
+                    {(open.items || []).map((it, idx: number) => {
+                      const item = it as unknown as OrderItemDisplay;
+                      const mods = Array.isArray(item.modifiers) ? item.modifiers : [];
+                      const sub = computeItemSubtotal(it);
+                      return (
+                        <tr key={idx} className="even:bg-amber-50/20 align-top">
+                          <td className="px-3 py-2">
+                            <div>{item.name}</div>
+                            {mods.length > 0 && (
+                              <ul className="mt-1 text-xs text-gray-700 list-disc ml-5">
+                                {mods.map((m: { name: string; price_delta: number }, i: number) => {
+                                  const pd = Number(m.price_delta) || 0;
+                                  const positive = pd >= 0;
+                                  return (
+                                    <li key={i}>
+                                      {m.name}{" "}
+                                      (<span className={positive ? "text-green-700" : "text-red-700"}>
+                                        {positive ? "+" : "-"}
+                                        {moneyFormat(Math.abs(pd), currency)}
+                                      </span>)
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">{item.quantity}</td>
+                          <td className="px-3 py-2">{moneyFormat(item.price, currency)}</td>
+                          <td className="px-3 py-2">{moneyFormat(sub, currency)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -532,6 +592,7 @@ export default function Orders() {
                 Total: {moneyFormat(getTotal(open), currency)}
               </div>
             </div>
+            {(open.order_type || 'delivery') !== 'pickup' && (
             <div className="mt-4 text-sm text-gray-800">
               <div className="font-medium mb-1">Courier</div>
               {open.courier ? (
@@ -542,7 +603,7 @@ export default function Orders() {
                 <div className="flex items-center gap-2">
                   <select
                     className="border rounded px-2 py-1"
-                    value={assignId as any}
+                    value={assignId as number | ""}
                     onChange={(e) => setAssignId(Number(e.target.value))}
                   >
                     <option value="">Select courier…</option>
@@ -562,7 +623,9 @@ export default function Orders() {
                         refresh();
                         // reflect in modal
                         const found = (couriers.data || []).find((c) => c.id === assignId);
-                        setOpen({ ...open, courier: found ? { id: found.id, name: found.name, email: found.email } : { id: assignId as number } as any });
+                        if (!open) return;
+                        const nextCourier = found ? { id: found.id, name: found.name, email: found.email } : { id: assignId as number };
+                        setOpen({ ...open, courier: nextCourier });
                       } catch (e) {
                         toast.error(parseAxiosError(e));
                       }
@@ -573,6 +636,7 @@ export default function Orders() {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       )}

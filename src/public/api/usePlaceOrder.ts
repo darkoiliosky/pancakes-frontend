@@ -2,10 +2,11 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import apiClient from "../../api/client";
 
-// Client payload: items with item_id and quantity only. Pricing is server-side.
+// Client payload: items with item_id, quantity and optional modifiers (IDs). Pricing is server-side.
 export const placeOrderItemSchema = z.object({
   item_id: z.number(),
   quantity: z.number().int().positive(),
+  modifiers: z.array(z.number()).optional(),
 });
 
 export const placeOrderPayloadSchema = z.object({

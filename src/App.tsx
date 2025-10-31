@@ -1,5 +1,6 @@
 import React, { ReactNode } from "react";
 import Navbar from "./components/Navbar";
+import MaintenanceBanner from "./components/MaintenanceBanner";
 import Footer from "./components/Footer";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
@@ -10,6 +11,7 @@ import PublicMyOrders from "./public/pages/MyOrders";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import EmailChangeConfirm from "./pages/EmailChangeConfirm";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import { useAuth } from "./context/AuthContext";
@@ -56,12 +58,13 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen flex flex-col pt-16 bg-[#fffdf8] text-gray-800">
+        <MaintenanceBanner />
         <Navbar />
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/menu" element={<PublicMenu />} />
-            <Route path="/cart" element={<PublicCart />} />
+            <Route path="/korpa" element={<PublicCart />} />
             <Route
               path="/checkout"
               element={
@@ -90,6 +93,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/email-change" element={<EmailChangeConfirm />} />
             <Route
               path="/profile"
               element={

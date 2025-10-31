@@ -12,6 +12,11 @@ const shopSchema = z.object({
   min_order: z.coerce.number().optional().default(0),
   delivery_fee: z.coerce.number().optional().default(0),
   currency: z.string().optional().default("$"),
+  pickup_only: z.boolean().optional().default(false),
+  working_hours_json: z.any().nullable().optional(),
+  closed_until: z.string().nullable().optional(),
+  maintenance_message: z.string().optional().default(""),
+  logo_url: z.string().nullable().optional(),
 });
 
 const getSchema = z.object({ settings: shopSchema.nullable().optional() });

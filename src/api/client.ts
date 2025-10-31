@@ -1,9 +1,12 @@
 import axios from "axios";
 import { queryClient } from "../lib/queryClient";
 
+// Support both VITE_ and legacy REACT_APP_ via import.meta.env (configured in vite.config.ts)
+const env: any = (typeof import.meta !== "undefined" ? (import.meta as any).env : {}) || {};
+const baseURL = env.VITE_API_URL || env.REACT_APP_API_URL || "http://localhost:5000";
+
 const apiClient = axios.create({
-  // Fallback to localhost:5000 in dev if env not set
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
+  baseURL,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });

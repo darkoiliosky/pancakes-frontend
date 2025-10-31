@@ -1,112 +1,137 @@
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useEffect, useMemo, useState } from "react";
 import { useShop } from "../public/api/useShop";
 import usePageTitle from "../hooks/usePageTitle";
 
-function Home() {
-  const { user } = useAuth();
-  const { data: shop, isLoading } = useShop();
+export default function Home() {
+  const { data: shop } = useShop();
   usePageTitle(`${shop?.name || "Pancakes Shop"} — Home`);
+  const name = shop?.name || "Pancakes & More";
+  const hero = "http://static.photos/food/1200x630/107";
+  const maintenance = (shop?.maintenance_message || "").toString().trim();
 
-  const isOpen = shop?.is_open ?? true;
-  const name = shop?.name || "Pancakes Shop";
-  const subtitle = (shop as any)?.maintenance_message || "Fluffy pancakes, fresh toppings, cozy vibes.";
-  const heroImage = (shop as any)?.logo_url as string | undefined;
+  // Subtle fade-in + parallax for hero
+  const [ready, setReady] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY || 0);
+    setReady(true);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const parallax = useMemo(() => Math.max(-16, Math.min(16, (scrollY || 0) * 0.06)), [scrollY]);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] overflow-hidden bg-[#fffdf8]">
-      {/* Unified Hero + Info (no extra scroll) */}
-      <section className="relative overflow-hidden">
-        {/* Background gradient */}
-        {heroImage ? (
-          <div className="absolute inset-0 opacity-15">
-            <img src={heroImage} alt="Hero" className="w-full h-full object-cover" />
+    <main className="bg-[#fdf5ef] text-[#734d26]">
+      {/* Announcement bar (maintenance message) */}
+      {maintenance && (
+        <div className="sticky top-0 z-10 bg-amber-50/90 backdrop-blur border-b border-amber-200 text-amber-800">
+          {/* simple marquee */}
+          <style>{`@keyframes marquee{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}`}</style>
+          <div className="overflow-hidden">
+            <div
+              className="whitespace-nowrap py-2 text-sm flex items-center gap-2"
+              style={{ animation: "marquee 16s linear infinite" }}
+            >
+              <span className="ml-4">🟡</span>
+              <span className="font-medium">Announcement:</span>
+              <span>{maintenance}</span>
+              <span className="mx-8 opacity-60">•</span>
+              <span>🟡</span>
+              <span className="font-medium">Announcement:</span>
+              <span>{maintenance}</span>
+              <span className="mx-8 opacity-60">•</span>
+            </div>
           </div>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-amber-100 to-amber-50" />
-        )}
-        {/* Decorative shapes */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 15% 20%, rgba(251,191,36,0.12) 3px, transparent 3px), radial-gradient(circle at 80% 30%, rgba(245,158,11,0.14) 4px, transparent 4px)",
-            backgroundSize: "42px 42px, 56px 56px",
-          }}
-        />
-        {/* Subtle emojis for character */}
-        <div className="pointer-events-none select-none absolute -left-6 top-10 text-6xl opacity-20">🥞</div>
-        <div className="pointer-events-none select-none absolute right-6 bottom-10 text-6xl opacity-20">☕</div>
-
-        {/* Content centered vertically; occupies full available height */}
-        <div className="relative max-w-6xl mx-auto px-4 py-6 md:py-8 flex items-center min-h-full">
-          {isLoading ? (
-            <div className="w-full space-y-5 animate-pulse text-center">
-              <div className="h-10 w-72 bg-amber-200/60 rounded mx-auto" />
-              <div className="h-4 w-80 bg-amber-100 rounded mx-auto" />
-              <div className="h-4 w-64 bg-amber-100 rounded mx-auto" />
-            </div>
-          ) : (
-            <div className="w-full">
-              {/* Elevated container for better visual balance */}
-              <div className="mx-auto max-w-4xl rounded-3xl border border-amber-100 bg-white/70 backdrop-blur shadow-xl px-6 py-8 md:px-10 md:py-10 text-center">
-                <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-amber-800">{name}</h1>
-                <p className="mt-3 text-amber-900/90 max-w-2xl mx-auto">
-                  Try our fresh pancakes, mini waffles, and cozy coffee to go.
-                </p>
-
-                <div className="mt-5 inline-flex items-center gap-4 px-4 py-3 rounded-2xl bg-white/80 backdrop-blur-sm shadow-md ring-1 ring-amber-100">
-                  <span
-                    className={`inline-flex items-center gap-3 px-4 py-2 rounded-full text-base md:text-lg font-semibold shadow-lg ring-2 ${
-                      isOpen
-                        ? "bg-green-500/10 text-green-900 ring-green-300 shadow-green-200"
-                        : "bg-gray-400/10 text-gray-900 ring-gray-300 shadow-gray-200"
-                    }`}
-                  >
-                    <span className="text-xl">{isOpen ? "●" : "○"}</span>
-                    {isOpen ? "Open" : "Closed"}
-                  </span>
-                  {shop?.working_hours && (
-                    <span className="text-sm md:text-base text-gray-700">Hours: {shop.working_hours}</span>
-                  )}
-                </div>
-
-                <div className="mt-5 md:mt-6 flex items-center justify-center gap-4">
-                  <Link
-                    to="/menu"
-                    className="px-6 py-3 rounded-xl bg-amber-500 text-white hover:bg-amber-600 shadow-md hover:shadow-lg transition"
-                  >
-                    View Menu
-                  </Link>
-                  <Link
-                    to="/cart"
-                    className="px-6 py-3 rounded-xl border border-amber-500 text-amber-700 bg-white/80 hover:bg-amber-50 shadow-sm hover:shadow transition"
-                  >
-                    View Cart
-                  </Link>
-                </div>
-
-                <div className="mt-4 md:mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm md:text-base">
-                  <div className="rounded-xl bg-white/90 backdrop-blur border p-4 text-left shadow-sm">
-                    <div className="font-semibold text-gray-700">Visit us</div>
-                    <div className="mt-1 text-gray-600">{shop?.address || "Our address"}</div>
-                  </div>
-                  <div className="rounded-xl bg-white/90 backdrop-blur border p-4 text-left shadow-sm">
-                    <div className="font-semibold text-gray-700">Call us</div>
-                    <div className="mt-1 text-gray-600">{shop?.phone || "(000) 000-0000"}</div>
-                  </div>
-                  <div className="rounded-xl bg-white/90 backdrop-blur border p-4 text-left shadow-sm">
-                    <div className="font-semibold text-gray-700">Working hours</div>
-                    <div className="mt-1 text-gray-600">{shop?.working_hours || "Mon–Sun"}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        </div>
+      )}
+      {/* Hero */}
+      <section className="relative">
+        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden>
+          <div
+            className="h-full w-full opacity-[0.15]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 15% 20%, rgba(245,158,11,0.30) 3px, transparent 3px), radial-gradient(circle at 80% 30%, rgba(253,230,138,0.40) 4px, transparent 4px)",
+              backgroundSize: "42px 42px, 56px 56px",
+            }}
+          />
+        </div>
+        <div className="max-w-5xl mx-auto px-4 py-10 md:py-16 text-center space-y-8">
+          <div
+            className={`overflow-hidden rounded-3xl shadow-lg transform transition duration-700 ease-out ${ready ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+            style={{ transform: `translateY(${parallax}px)` }}
+          >
+            <img src={hero} alt="Stack of pancakes with syrup" className="w-full h-auto max-h-[32rem] object-cover object-center" />
+          </div>
+          <div className={`space-y-4 transform transition duration-700 ${ready ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+            <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#734d26] tracking-tight">
+              Fluffy Pancakes & Hearty Bites
+            </h1>
+            <p className="text-lg max-w-2xl mx-auto text-[#8a5c2e]">
+              Freshly made comfort food served with warm hospitality
+            </p>
+            <Link
+              to="/menu"
+              className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-full font-medium transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+            >
+              Order Now
+            </Link>
+          </div>
         </div>
       </section>
-    </div>
+
+      {/* Featured Menu */}
+      <section id="menu" className="max-w-5xl mx-auto px-4 pb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { src: "http://static.photos/food/640x360/108", title: "Classic Pancakes", price: 9.5, desc: "With maple syrup & butter" },
+            { src: "http://static.photos/food/640x360/109", title: "Toasted Sandwich", price: 7.5, desc: "Crunchy and warm" },
+            { src: "http://static.photos/food/640x360/110", title: "Fresh Salad", price: 6.0, desc: "Greens & vinaigrette" },
+            { src: "http://static.photos/food/640x360/111", title: "Iced Coffee", price: 4.0, desc: "Cold & refreshing" },
+          ].map((c, idx) => (
+            <div
+              key={idx}
+              className="group bg-white p-6 rounded-3xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+            >
+              <div className="relative rounded-2xl overflow-hidden mb-4 aspect-square">
+                <img
+                  src={c.src}
+                  alt={c.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                />
+                <span className="absolute top-4 right-4 bg-orange-500 text-white text-sm px-3 py-1 rounded-full shadow">
+                  MKD {(c.price * 61.5).toFixed(c.price % 1 ? 2 : 0)}
+                </span>
+              </div>
+              <h3 className="text-xl font-medium mb-1">{c.title}</h3>
+              <p className="text-sm text-[#8a5c2e]">{c.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* About */}
+      <section id="about" className="max-w-5xl mx-auto px-4 pb-20 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <div className="rounded-3xl overflow-hidden shadow-lg">
+          <img
+            src="http://static.photos/food/1200x630/112"
+            alt="Cafe interior"
+            className="w-full h-full object-cover transform transition duration-[1200ms] ease-out will-change-transform"
+            style={{ transform: `translateY(${parallax * 0.6}px)` }}
+          />
+        </div>
+        <div className={`space-y-4 transform transition duration-700 ${ready ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+          <h2 className="text-3xl font-serif font-bold text-[#734d26]">Cozy place, tasty plates</h2>
+          <p className="text-[#8a5c2e]">We make pancakes, sandwiches, salads and coffee with care, using quality ingredients and classic techniques.</p>
+          <div className="flex gap-3">
+            <Link to="/menu" className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded-full shadow hover:-translate-y-0.5 transition">Browse Menu</Link>
+            <Link to="/korpa" className="border border-orange-500 text-orange-600 px-5 py-2 rounded-full hover:bg-orange-50 transition">Корпа</Link>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
-
-export default Home;

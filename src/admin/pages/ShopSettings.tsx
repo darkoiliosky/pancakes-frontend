@@ -1,11 +1,12 @@
 import { useAdminShop, useUpdateShop } from "../api/useAdminShop";
 import { useForm, Controller } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "../../context/ToastContext";
 import { Switch } from "../../components/ui/switch";
 
 const schema = z.object({
@@ -29,13 +30,15 @@ type FormData = z.infer<typeof schema>;
 export default function ShopSettings() {
   const { data, isLoading, error } = useAdminShop();
   const update = useUpdateShop();
-  const [saved, setSaved] = useState(false);
+  const toast = useToast();
+  
 
   const {
     register,
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
+    watch,
     reset,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -97,10 +100,10 @@ export default function ShopSettings() {
       }
       if (!body.closed_until) body.closed_until = null;
       await update.mutateAsync(body);
-      alert("Settings saved");
+      toast.success("Settings saved");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      alert(message || "Failed");
+      toast.error(message || "Failed");
     }
   };
 
@@ -125,6 +128,19 @@ export default function ShopSettings() {
           </div>
         </div>
       </div>
+
+      {/* Maintenance preview */}
+      {(() => {
+        const msg = ((typeof watch === 'function' ? (watch("maintenance_message") as any) : "") || "").toString();
+        if (!msg) return null;
+        return (
+          <div className="max-w-5xl mx-auto px-4 pt-4">
+            <div className="rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-900 px-4 py-2 text-sm">
+              <b>Maintenance (preview):</b> {msg}
+            </div>
+          </div>
+        );
+      })()}
 
       <form
         onSubmit={handleSubmit(onSubmit)}
@@ -315,7 +331,7 @@ export default function ShopSettings() {
                 </label>
                 <input
                   className="border border-gray-200 rounded-lg w-full px-3 py-2 focus:ring-2 focus:ring-amber-300 outline-none"
-                  placeholder="$"
+                  placeholder="MKD"
                   {...register("currency")}
                 />
               </div>
@@ -367,11 +383,8 @@ export default function ShopSettings() {
         </p>
       </form>
 
-      {saved && (
-        <div className="fixed bottom-4 right-4 bg-white border shadow-lg rounded-lg px-4 py-2 text-sm">
-          ✅ Settings saved successfully
-        </div>
-      )}
+      {/* saved banner removed; using toasts */}
     </div>
   );
 }
+

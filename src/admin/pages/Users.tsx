@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseAxiosError } from "../../api/errors";
+import { useToast } from "../../context/ToastContext";
 
 const inviteSchema = z.object({ email: z.string().email() });
 type InviteForm = z.infer<typeof inviteSchema>;
@@ -25,6 +26,7 @@ export default function Users() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [inviteOk, setInviteOk] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -109,7 +111,7 @@ export default function Users() {
       setInviteOk(true);
       setTimeout(() => setInviteOk(false), 2000);
     } catch (e: any) {
-      alert(parseAxiosError(e));
+      toast.error(parseAxiosError(e));
     }
   };
 

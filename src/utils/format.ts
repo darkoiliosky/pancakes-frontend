@@ -1,6 +1,6 @@
-export function moneyFormat(value: number | string | null | undefined, currency = "$") {
+export function moneyFormat(value: number | string | null | undefined, _currency?: string) {
   const n = typeof value === "number" ? value : Number(value || 0);
-  if (!Number.isFinite(n)) return `${currency}0.00`;
-  return `${currency}${n.toFixed(2)}`;
+  if (!Number.isFinite(n)) return `MKD 0`;
+  const fixed = n.toFixed(2).replace(/\.00$/, "");
+  return `MKD ${fixed}`;
 }
-

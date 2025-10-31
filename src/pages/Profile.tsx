@@ -5,8 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Card, CardHeader, CardContent, CardFooter } from "../components/ui/card";
-import { UserIcon, MailIcon, PhoneIcon, ShieldIcon, EditIcon, XIcon, CheckIcon } from "lucide-react";
+import { UserIcon, MailIcon, PhoneIcon, EditIcon, XIcon, CheckIcon } from "lucide-react";
 import { useUpdateProfile } from "../api/useUpdateProfile";
+import { useToast } from "../context/ToastContext";
+import apiClient from "../api/client";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Името мора да има најмалку 2 знака"),
@@ -18,24 +20,22 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 export default function Profile() {
   const { user, logout, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const toast = useToast();
   const updateProfile = useUpdateProfile();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-  } = useForm<ProfileFormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: { name: user?.name || "", phone: user?.phone || "" },
   });
 
-  if (!user)
+  if (!user) {
     return (
       <div className="flex justify-center items-center h-[70vh] text-gray-600">
         <p>Немате активна сесија.</p>
       </div>
     );
+  }
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
@@ -43,9 +43,9 @@ export default function Profile() {
       await refreshUser();
       setIsEditing(false);
       reset(data);
-    } catch (err: any) {
-      console.error("Update profile error:", err);
-      alert(err?.message || "Настана грешка при ажурирање");
+      toast.success("Профилот е ажуриран");
+    } catch {
+      toast.error("Неуспешно ажурирање на профилот");
     }
   };
 
@@ -56,9 +56,7 @@ export default function Profile() {
           <div className="flex flex-col items-center gap-3">
             <div className="relative">
               <img
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
-                  user.name
-                )}&background=f8b400&color=fff`}
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=f8b400&color=fff`}
                 alt="avatar"
                 className="w-24 h-24 rounded-full border-[5px] border-amber-300 shadow-md transition-transform duration-300 hover:scale-105"
               />
@@ -75,7 +73,6 @@ export default function Profile() {
               <ProfileRow icon={<UserIcon />} label="Име" value={user.name} />
               <ProfileRow icon={<MailIcon />} label="Е-пошта" value={user.email} />
               <ProfileRow icon={<PhoneIcon />} label="Телефон" value={user.phone || "—"} />
-              <ProfileRow icon={<ShieldIcon />} label="Улога" value={user.role || ""} />
             </>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -86,7 +83,7 @@ export default function Profile() {
                   <XIcon className="w-4 h-4 mr-1" /> Откажи
                 </Button>
                 <Button type="submit" variant="default" disabled={isSubmitting}>
-                  <CheckIcon className="w-4 h-4 mr-1" />{` `}
+                  <CheckIcon className="w-4 h-4 mr-1" />
                   {isSubmitting ? "Се ажурира..." : "Зачувај"}
                 </Button>
               </div>
@@ -113,20 +110,43 @@ export default function Profile() {
             Одјава
           </Button>
         </CardFooter>
+
+        <div className="px-6 pb-6">
+          <div className="border-t pt-4 mt-2" />
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-gray-800">Промена на е-пошта</div>
+            <div className="text-xs text-gray-600">Внесете нова е-пошта за да добиете потврден линк. Промената ќе важи по потврдата.</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder={user.email}
+                className="flex-1 border rounded-lg px-3 py-2"
+              />
+              <Button
+                onClick={async () => {
+                  try {
+                    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) { toast.error("Внесете валидна е-пошта"); return; }
+                    await apiClient.post('/api/users/email-change/request', { new_email: newEmail });
+                    toast.success("Испратена е потврдна е-пошта");
+                    setNewEmail("");
+                  } catch (e: any) {
+                    toast.error(e?.response?.data?.error || e?.message || "Неуспешно праќање на потврда");
+                  }
+                }}
+              >
+                Испрати потврда
+              </Button>
+            </div>
+          </div>
+        </div>
       </Card>
     </div>
   );
 }
 
-const ProfileRow = ({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) => (
+const ProfileRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
   <div className="flex items-center gap-3 text-gray-800">
     <div className="text-amber-500">{icon}</div>
     <p>
@@ -135,22 +155,10 @@ const ProfileRow = ({
   </div>
 );
 
-const InputField = ({
-  label,
-  error,
-  register,
-}: {
-  label: string;
-  error?: string;
-  register: any;
-}) => (
+const InputField = ({ label, error, register }: { label: string; error?: string; register: any }) => (
   <div>
     <label className="block text-sm font-medium mb-1 text-gray-700">{label}</label>
-    <input
-      type="text"
-      {...register}
-      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-400 outline-none"
-    />
+    <input type="text" {...register} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-400 outline-none" />
     {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
   </div>
 );

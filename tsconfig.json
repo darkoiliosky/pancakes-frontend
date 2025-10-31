@@ -6,7 +6,7 @@
 
     /* 📦 Module resolution */
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -28,7 +28,8 @@
     "baseUrl": "src",
     "paths": {
       "@/*": ["*"]
-    }
+    },
+    "types": ["vite/client"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "build"]
