@@ -16,7 +16,7 @@ describe('Forgot/Reset pages', () => {
         </MemoryRouter>
       </QueryClientProvider>
     );
-    expect(screen.getByText(/reset your password/i)).toBeInTheDocument();
+    expect(screen.getByText(/заборавена лозинка/i)).toBeInTheDocument();
   });
 
   it('renders reset password', () => {
@@ -30,6 +30,6 @@ describe('Forgot/Reset pages', () => {
         </MemoryRouter>
       </QueryClientProvider>
     );
-    expect(screen.getByText(/set new password/i)).toBeInTheDocument();
+    expect(screen.getByText(/ресетирај лозинка/i)).toBeInTheDocument();
   });
 });

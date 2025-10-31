@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+﻿import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../context/AuthContext";
@@ -6,7 +6,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 const loginSchema = z.object({
   email: z.string().email("Внесете валидна е-пошта"),
-  password: z.string().min(6, "Лозинката мора да има најмалку 6 знаци"),
+  password: z.string().min(6, "Лозинката мора да има најмалку 6 карактери"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -25,8 +25,8 @@ function Login() {
     try {
       await login(data);
       navigate("/");
-        } catch (error: any) {
-      const message = (error?.response?.data?.error as string) || (error?.message as string) || "������� �� �����";
+    } catch (error: any) {
+      const message = (error?.response?.data?.error as string) || (error?.message as string) || "Грешка при најава";
       alert(message);
       console.error(error);
     }
@@ -39,8 +39,9 @@ function Login() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
-            <label className="block mb-1 text-sm font-medium">Е-пошта</label>
+            <label htmlFor="email" className="block mb-1 text-sm font-medium">Е-пошта</label>
             <input
+              id="email"
               type="email"
               {...register("email")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
@@ -51,8 +52,9 @@ function Login() {
           </div>
 
           <div>
-            <label className="block mb-1 text-sm font-medium">Лозинка</label>
+            <label htmlFor="password" className="block mb-1 text-sm font-medium">Лозинка</label>
             <input
+              id="password"
               type="password"
               {...register("password")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
@@ -64,7 +66,7 @@ function Login() {
 
           <div className="text-right -mt-2">
             <Link to="/forgot-password" className="text-sm text-brand underline hover:text-yellow-600">
-              Ја заборавив лозинката
+              Заборавена лозинка
             </Link>
           </div>
 
@@ -73,7 +75,7 @@ function Login() {
             disabled={isSubmitting}
             className="bg-brand hover:bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-60"
           >
-            {isSubmitting ? "Се најавува..." : "Најави се"}
+            {isSubmitting ? "Се најавувате..." : "Најави се"}
           </button>
         </form>
       </div>
@@ -82,4 +84,3 @@ function Login() {
 }
 
 export default Login;
-

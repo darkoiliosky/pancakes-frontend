@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,8 +11,8 @@ import { useToast } from "../context/ToastContext";
 import apiClient from "../api/client";
 
 const profileSchema = z.object({
-  name: z.string().min(2, "Името мора да има најмалку 2 знака"),
-  phone: z.string().min(6, "Телефонот мора да има најмалку 6 знаци"),
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  phone: z.string().min(6, "Phone must be at least 6 characters"),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -32,7 +32,7 @@ export default function Profile() {
   if (!user) {
     return (
       <div className="flex justify-center items-center h-[70vh] text-gray-600">
-        <p>Немате активна сесија.</p>
+        <p>You must be logged in.</p>
       </div>
     );
   }
@@ -43,9 +43,9 @@ export default function Profile() {
       await refreshUser();
       setIsEditing(false);
       reset(data);
-      toast.success("Профилот е ажуриран");
-    } catch {
-      toast.error("Неуспешно ажурирање на профилот");
+      toast.success("Profile updated successfully");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || e?.message || "Failed to update profile");
     }
   };
 
@@ -62,7 +62,7 @@ export default function Profile() {
               />
             </div>
             <h2 className="text-2xl font-bold text-amber-600 flex items-center gap-2 mt-1">
-              <UserIcon className="w-6 h-6 text-amber-500" /> Профил
+              <UserIcon className="w-6 h-6 text-amber-500" /> {user.name}
             </h2>
           </div>
         </CardHeader>
@@ -70,21 +70,21 @@ export default function Profile() {
         <CardContent className="space-y-5 mt-5 px-6">
           {!isEditing ? (
             <>
-              <ProfileRow icon={<UserIcon />} label="Име" value={user.name} />
-              <ProfileRow icon={<MailIcon />} label="Е-пошта" value={user.email} />
-              <ProfileRow icon={<PhoneIcon />} label="Телефон" value={user.phone || "—"} />
+              <ProfileRow icon={<UserIcon />} label="Name" value={user.name} />
+              <ProfileRow icon={<MailIcon />} label="Email" value={user.email} />
+              <ProfileRow icon={<PhoneIcon />} label="Phone" value={user.phone || "-"} />
             </>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <InputField label="Име" error={errors.name?.message} register={register("name")} />
-              <InputField label="Телефон" error={errors.phone?.message} register={register("phone")} />
+              <InputField label="Name" error={errors.name?.message} register={register("name")} />
+              <InputField label="Phone" error={errors.phone?.message} register={register("phone")} />
               <div className="flex justify-end gap-2">
                 <Button type="button" onClick={() => setIsEditing(false)}>
-                  <XIcon className="w-4 h-4 mr-1" /> Откажи
+                  <XIcon className="w-4 h-4 mr-1" /> Cancel
                 </Button>
                 <Button type="submit" variant="default" disabled={isSubmitting}>
                   <CheckIcon className="w-4 h-4 mr-1" />
-                  {isSubmitting ? "Се ажурира..." : "Зачувај"}
+                  {isSubmitting ? "Saving..." : "Save"}
                 </Button>
               </div>
             </form>
@@ -100,22 +100,22 @@ export default function Profile() {
             }}
             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600"
           >
-            <EditIcon className="w-4 h-4" /> Уреди профил
+            <EditIcon className="w-4 h-4" /> Edit Profile
           </Button>
           <Button
             variant="destructive"
             onClick={logout}
             className="flex items-center gap-2 px-6 py-2 text-sm font-semibold rounded-xl"
           >
-            Одјава
+            Logout
           </Button>
         </CardFooter>
 
         <div className="px-6 pb-6">
           <div className="border-t pt-4 mt-2" />
           <div className="space-y-2">
-            <div className="text-sm font-semibold text-gray-800">Промена на е-пошта</div>
-            <div className="text-xs text-gray-600">Внесете нова е-пошта за да добиете потврден линк. Промената ќе важи по потврдата.</div>
+            <div className="text-sm font-semibold text-gray-800">Change your email</div>
+            <div className="text-xs text-gray-600">We will send a confirmation to your new email before applying changes.</div>
             <div className="flex items-center gap-2">
               <input
                 type="email"
@@ -127,16 +127,16 @@ export default function Profile() {
               <Button
                 onClick={async () => {
                   try {
-                    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) { toast.error("Внесете валидна е-пошта"); return; }
+                    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) { toast.error("Invalid email"); return; }
                     await apiClient.post('/api/users/email-change/request', { new_email: newEmail });
-                    toast.success("Испратена е потврдна е-пошта");
+                    toast.success("Verification email sent");
                     setNewEmail("");
                   } catch (e: any) {
-                    toast.error(e?.response?.data?.error || e?.message || "Неуспешно праќање на потврда");
+                    toast.error(e?.response?.data?.error || e?.message || "Failed to request email change");
                   }
                 }}
               >
-                Испрати потврда
+                Send verification
               </Button>
             </div>
           </div>
@@ -162,4 +162,3 @@ const InputField = ({ label, error, register }: { label: string; error?: string;
     {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
   </div>
 );
-

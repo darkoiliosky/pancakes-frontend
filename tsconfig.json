@@ -29,8 +29,8 @@
     "paths": {
       "@/*": ["*"]
     },
-    "types": ["vite/client"]
+    "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["src"],
+  "include": ["src", "tests", "e2e", "vitest.setup.ts"],
   "exclude": ["node_modules", "build"]
 }

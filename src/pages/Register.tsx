@@ -1,4 +1,4 @@
-// src/pages/Register.tsx
+﻿// src/pages/Register.tsx
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -58,8 +58,9 @@ function Register() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
-            <label className="block mb-1 text-sm font-medium">Name</label>
+            <label htmlFor="name" className="block mb-1 text-sm font-medium">Name</label>
             <input
+              id="name"
               type="text"
               {...register("name")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
@@ -70,8 +71,9 @@ function Register() {
           </div>
 
           <div>
-            <label className="block mb-1 text-sm font-medium">Email</label>
+            <label htmlFor="email" className="block mb-1 text-sm font-medium">Email</label>
             <input
+              id="email"
               type="email"
               defaultValue={inviteEmail}
               disabled={!!invite}
@@ -84,8 +86,9 @@ function Register() {
           </div>
 
           <div>
-            <label className="block mb-1 text-sm font-medium">Password</label>
+            <label htmlFor="password" className="block mb-1 text-sm font-medium">Password</label>
             <input
+              id="password"
               type="password"
               {...register("password")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
@@ -95,8 +98,9 @@ function Register() {
             )}
           </div>
           <div>
-            <label className="block mb-1 text-sm font-medium">Phone</label>
+            <label htmlFor="phone" className="block mb-1 text-sm font-medium">Phone</label>
             <input
+              id="phone"
               type="text"
               {...register("phone")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand"
@@ -119,4 +123,3 @@ function Register() {
 }
 
 export default Register;
-
