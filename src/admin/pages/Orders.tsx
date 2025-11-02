@@ -283,7 +283,7 @@ export default function Orders() {
           <div className="flex items-center gap-2">
             <button
               className="px-2 py-1 text-xs rounded bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50"
-              onClick={() => setOpen(row.original)}
+              onClick={() => openWithItems(row.original)}
               disabled={false}
               aria-label="View details"
             >
@@ -554,35 +554,38 @@ export default function Orders() {
                   </thead>
                   <tbody>
                     {(open.items || []).map((it, idx: number) => {
-                      const item = it as unknown as OrderItemDisplay;
-                      const mods = Array.isArray(item.modifiers) ? item.modifiers : [];
+                      const item = it as any;
+                      const mods = Array.isArray(item.modifiers)
+                        ? item.modifiers
+                        : (Array.isArray(item.mods) ? item.mods : []);
                       const sub = computeItemSubtotal(it);
                       return (
-                        <tr key={idx} className="even:bg-amber-50/20 align-top">
-                          <td className="px-3 py-2">
-                            <div>{item.name}</div>
-                            {mods.length > 0 && (
-                              <ul className="mt-1 text-xs text-gray-700 list-disc ml-5">
-                                {mods.map((m: { name: string; price_delta: number }, i: number) => {
+                        <>
+                          <tr key={`row-${idx}`} className="even:bg-amber-50/20 align-top">
+                            <td className="px-3 py-2">
+                              <div>{item.name || item.item_name}</div>
+                            </td>
+                            <td className="px-3 py-2">{item.quantity}</td>
+                            <td className="px-3 py-2">{moneyFormat(Number(item.price || item.item_price || 0), currency)}</td>
+                            <td className="px-3 py-2">{moneyFormat(sub, currency)}</td>
+                          </tr>
+                          {mods.length > 0 && (
+                            <tr key={`mods-${idx}`} className="even:bg-amber-50/20">
+                              <td className="px-3 py-1 text-xs text-gray-700" colSpan={4}>
+                                <span className="font-medium mr-1">Extras:</span>
+                                {mods.map((m: any, mi: number) => {
                                   const pd = Number(m.price_delta) || 0;
-                                  const positive = pd >= 0;
+                                  const sign = pd >= 0 ? "+" : "-";
                                   return (
-                                    <li key={i}>
-                                      {m.name}{" "}
-                                      (<span className={positive ? "text-green-700" : "text-red-700"}>
-                                        {positive ? "+" : "-"}
-                                        {moneyFormat(Math.abs(pd), currency)}
-                                      </span>)
-                                    </li>
+                                    <span key={mi} className="mr-3 inline-block">
+                                      {m.name} <span className={pd >= 0 ? "text-green-700" : "text-red-700"}>{sign}{moneyFormat(Math.abs(pd), currency)}</span>
+                                    </span>
                                   );
                                 })}
-                              </ul>
-                            )}
-                          </td>
-                          <td className="px-3 py-2">{item.quantity}</td>
-                          <td className="px-3 py-2">{moneyFormat(item.price, currency)}</td>
-                          <td className="px-3 py-2">{moneyFormat(sub, currency)}</td>
-                        </tr>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       );
                     })}
                   </tbody>

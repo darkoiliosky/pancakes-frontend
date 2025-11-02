@@ -1,0 +1,35 @@
+/* Imported from for_menu/styles.css (custom extras for Menu view) */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+/* Scope fonts to the menu view wrapper to avoid global leaks */
+.menu-view { font-family: "Poppins", sans-serif; }
+.menu-view .menu-hero { background: linear-gradient(90deg, #fff8e1, #fff3c4); }
+/* Custom scrollbar */
+/* Scoped custom scrollbar within the menu view */
+.menu-view *::-webkit-scrollbar { width: 8px; }
+.menu-view *::-webkit-scrollbar-track { background: #f1f1f1; }
+.menu-view *::-webkit-scrollbar-thumb { background: #ffcc33; border-radius: 4px; }
+.menu-view *::-webkit-scrollbar-thumb:hover { background: #ffbf00; }
+
+/* Card hover */
+.card-hover { transition: box-shadow 0.3s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.card-hover:hover { box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+
+/* Animations */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+@keyframes fadeOut { from { opacity: 1;} to { opacity: 0;} }
+.animate-fade-in-up { animation: fadeInUp 0.3s ease forwards; }
+.animate-fade-out { animation: fadeOut 0.3s ease forwards; }
+
+/* Backdrop blur util (when not using Tailwind's class) */
+.backdrop-blur-sm { backdrop-filter: blur(4px); }
+
+/* Promo carousel stubs (not used yet) */
+.promo-carousel { transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.promo-item { animation: fadeInUp 0.5s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+/* Extras container animation */
+@keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 500px; } }
+.extras-container { animation: slideDown 0.3s ease; }
+.toggle-extras { transition: color 0.2s ease; }
+.toggle-extras:hover { color: #ffbf00; }

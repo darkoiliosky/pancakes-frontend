@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Switch } from "../../components/ui/switch";
 import { moneyFormat } from "../../utils/format";
 import MenuItemModifiers from "../components/MenuItemModifiers";
+import AssignModifierGroups from "../components/AssignModifierGroups";
 import { useToast } from "../../context/ToastContext";
 
 const schema = z.object({
@@ -223,7 +224,10 @@ export default function MenuItems() {
               </button>
             </form>
             {editing && (
-              <MenuItemModifiers menuItemId={editing.id} basePrice={editing.price} />
+              <>
+                <MenuItemModifiers menuItemId={editing.id} basePrice={editing.price} />
+                <AssignModifierGroups menuItemId={editing.id} />
+              </>
             )}
           </div>
         </>

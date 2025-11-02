@@ -1,0 +1,17 @@
+{
+  "short_name": "Pancakes",
+  "name": "Pancakes Shop — Палачинки, кафе и десерти",
+  "description": "Онлајн нарачки на палачинки, мини палачинки, чиа и кафе to go.",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#f8b400",
+  "background_color": "#fffdf8"
+}

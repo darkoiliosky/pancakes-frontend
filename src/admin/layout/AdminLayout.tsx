@@ -6,6 +6,8 @@ export default function AdminLayout() {
     { to: "/admin/users", label: "Users" },
     { to: "/admin/shop", label: "Shop Settings" },
     { to: "/admin/menu-items", label: "Menu Items" },
+    { to: "/admin/modifier-groups", label: "Modifier Groups" },
+    { to: "/admin/pickups", label: "Pickups" },
     { to: "/admin/orders", label: "Orders" },
     { to: "/admin/deliveries", label: "Deliveries" },
   ];

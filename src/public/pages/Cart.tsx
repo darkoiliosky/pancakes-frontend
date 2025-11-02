@@ -73,12 +73,29 @@ export default function Cart() {
                 <li key={it.item_id} className="py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium truncate max-w-[260px]">{it.name}</div>
-                    {(it.mods_detail && it.mods_detail.length > 0) && (
-                      <ul className="text-xs text-gray-600 mt-1">
-                        {it.mods_detail.map((m) => (
-                          <li key={m.id}>+ {m.name}</li>
-                        ))}
-                      </ul>
+                    {(it.mods_detail && (it.mods_detail as any[]).length > 0) && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        {typeof (it.mods_detail as any[])[0]?.group === 'string' ? (
+                          <ul className="space-y-1">
+                            {(it.mods_detail as any[]).map((g: any, idx: number) => (
+                              <li key={idx}>
+                                <span className="font-medium text-gray-700">{g.group}:</span>
+                                <ul className="ml-2 list-disc">
+                                  {Array.isArray(g.options) && g.options.map((o: any) => (
+                                    <li key={o.id}>+ {o.name}</li>
+                                  ))}
+                                </ul>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <ul>
+                            {(it.mods_detail as any[]).map((m: any) => (
+                              <li key={m.id}>+ {m.name}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     )}
                     <div className="text-sm text-gray-600">{formatCurrency(it.price, currency)} each</div>
                   </div>
@@ -106,7 +123,20 @@ export default function Cart() {
                       Remove
                     </button>
                   </div>
-                  <div className="font-semibold w-24 text-right">{formatCurrency(((it.mods_detail || []).reduce((a, m)=>a + (Number(m.price_delta)||0), 0) + it.price) * it.quantity, currency)}</div>
+                  <div className="font-semibold w-24 text-right">{
+                    (() => {
+                      const md: any[] = (it.mods_detail as any[]) || [];
+                      let extra = 0;
+                      if (md.length > 0) {
+                        if (typeof md[0]?.group === 'string') {
+                          for (const g of md) for (const o of (g.options||[])) extra += Number(o.price||0);
+                        } else {
+                          for (const m of md) extra += Number(m.price_delta||0);
+                        }
+                      }
+                      return formatCurrency((it.price + extra) * it.quantity, currency);
+                    })()
+                  }</div>
                 </li>
               ))}
             </ul>

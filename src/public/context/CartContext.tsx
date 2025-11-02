@@ -1,13 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../context/ToastContext";
 
+type ModDetailFlat = { id: number; name: string; price_delta: number };
+type ModDetailGroup = { group: string; options: { id: number; name: string; price: number }[] };
+
 export type CartItem = {
   item_id: number;
   name: string;
   price: number; // base price
   quantity: number;
   modifiers?: number[]; // IDs for checkout
-  mods_detail?: { id: number; name: string; price_delta: number }[]; // display + totals
+  mods_detail?: ModDetailFlat[] | ModDetailGroup[]; // display + totals (flat or grouped)
+  note?: string; // customer note/comment
 };
 
 type CartState = {
@@ -48,7 +52,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       typeof it.item_id === "number" &&
       typeof it.price === "number" &&
       typeof it.quantity === "number" &&
-      (typeof it.name === "string" || typeof it.name === "undefined")
+      (typeof it.name === "string" || typeof it.name === "undefined") &&
+      (typeof (it as any).note === "string" || typeof (it as any).note === "undefined")
     );
   }
 
@@ -63,9 +68,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return (typeof m.id === "number" || typeof m.id === "string") && typeof m.name === "string";
   }
 
-  function normalizeModsDetail(input: unknown): { id: number; name: string; price_delta: number }[] | undefined {
+  function normalizeModsDetail(input: unknown): ModDetailFlat[] | ModDetailGroup[] | undefined {
     if (!Array.isArray(input)) return undefined;
-    const list = (input as unknown[])
+    // Try grouped shape first
+    const maybeGroups = (input as unknown[]).every((g: any) => isObject(g) && typeof (g as any).group === "string" && Array.isArray((g as any).options));
+    if (maybeGroups) {
+      const out: ModDetailGroup[] = (input as any[]).map((g: any) => ({
+        group: String(g.group || ""),
+        options: Array.isArray(g.options)
+          ? g.options.filter((o: any) => isObject(o) && (typeof (o as any).id === "number" || typeof (o as any).id === "string")).map((o: any) => ({ id: Number(o.id), name: String(o.name || ""), price: Number(o.price || 0) }))
+          : [],
+      }));
+      return out;
+    }
+    // Fallback to flat
+    const list: ModDetailFlat[] = (input as unknown[])
       .filter(isModLike)
       .map((m) => ({ id: Number(m.id), name: m.name, price_delta: Number(m.price_delta || 0) }));
     return list.length ? list : undefined;
@@ -89,6 +106,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           quantity: it.quantity,
           modifiers: normalizeModifiers(it.modifiers),
           mods_detail: normalizeModsDetail(it.mods_detail),
+          note: typeof (it as any).note === "string" ? (it as any).note : undefined,
         }));
       setState({ items });
     } catch {}
@@ -105,7 +123,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     (payload: Omit<CartItem, "quantity"> & { quantity?: number }) => {
       const qty = clamp(Number(payload.quantity ?? 1) || 1, 1, 99);
       setState((cur) => {
-        const keyOf = (it: CartItem) => `${it.item_id}|${(it.modifiers || []).slice().sort((a,b)=>a-b).join(",")}`;
+        const keyOf = (it: CartItem) => `${it.item_id}|${(it.modifiers || []).slice().sort((a,b)=>a-b).join(",")}|${(it.note || "").trim()}`;
         const incomingKey = keyOf(payload as CartItem);
         const idx = cur.items.findIndex((it) => keyOf(it) === incomingKey);
         if (idx >= 0) {
@@ -125,6 +143,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               quantity: qty,
               modifiers: payload.modifiers,
               mods_detail: payload.mods_detail,
+              note: payload.note,
             },
           ],
         };
@@ -167,14 +186,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setState({ items: [] });
   }, []);
 
-  const subtotal = useMemo(
-    () =>
-      state.items.reduce((s, it) => {
-        const extra = (it.mods_detail || []).reduce((a, m) => a + (Number(m.price_delta) || 0), 0);
-        return s + (it.price + extra) * it.quantity;
-      }, 0),
-    [state.items]
-  );
+  const subtotal = useMemo(() =>
+    state.items.reduce((s, it) => {
+      let extra = 0;
+      const md = it.mods_detail as any;
+      if (Array.isArray(md) && md.length > 0) {
+        if (typeof md[0]?.group === "string") {
+          // grouped
+          for (const g of md as ModDetailGroup[]) {
+            for (const o of g.options) extra += Number(o.price || 0);
+          }
+        } else {
+          // flat
+          for (const m of md as ModDetailFlat[]) extra += Number(m.price_delta || 0);
+        }
+      }
+      return s + (it.price + extra) * it.quantity;
+    }, 0)
+  , [state.items]);
 
   const count = useMemo(() => state.items.reduce((s, it) => s + it.quantity, 0), [state.items]);
 

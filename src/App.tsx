@@ -21,7 +21,9 @@ import Users from "./admin/pages/Users";
 import ShopSettings from "./admin/pages/ShopSettings";
 import MenuItems from "./admin/pages/MenuItems";
 import Orders from "./admin/pages/Orders";
+import ModifierGroups from "./admin/pages/ModifierGroups";
 import Deliveries from "./admin/pages/Deliveries";
+import Pickups from "./admin/pages/Pickups";
 import MyDeliveries from "./courier/pages/MyDeliveries";
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -114,6 +116,8 @@ function App() {
               <Route path="users" element={<Users />} />
               <Route path="shop" element={<ShopSettings />} />
               <Route path="menu-items" element={<MenuItems />} />
+              <Route path="modifier-groups" element={<ModifierGroups />} />
+              <Route path="pickups" element={<Pickups />} />
               <Route path="orders" element={<Orders />} />
               <Route path="deliveries" element={<Deliveries />} />
             </Route>
