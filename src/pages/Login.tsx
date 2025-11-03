@@ -1,4 +1,4 @@
-﻿import { useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../context/AuthContext";
@@ -6,7 +6,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 const loginSchema = z.object({
   email: z.string().email("Внесете валидна е-пошта"),
-  password: z.string().min(6, "Лозинката мора да има најмалку 6 карактери"),
+  password: z.string().min(6, "Лозинката мора да има најмалку 6 знаци"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -26,7 +26,7 @@ function Login() {
       await login(data);
       navigate("/");
     } catch (error: any) {
-      const message = (error?.response?.data?.error as string) || (error?.message as string) || "Грешка при најава";
+      const message = (error?.response?.data?.error as string) || (error?.message as string) || "Настана грешка";
       alert(message);
       console.error(error);
     }
@@ -75,7 +75,7 @@ function Login() {
             disabled={isSubmitting}
             className="bg-brand hover:bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-60"
           >
-            {isSubmitting ? "Се најавувате..." : "Најави се"}
+            {isSubmitting ? "Се најавувам..." : "Најави се"}
           </button>
         </form>
       </div>

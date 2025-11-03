@@ -6,6 +6,7 @@ import apiClient from "../../api/client";
 const shopSchema = z.object({
   name: z.string().optional().default(""),
   is_open: z.boolean().optional().default(true),
+  is_open_effective: z.boolean().optional().default(true),
   working_hours: z.string().optional().default(""),
   address: z.string().optional().default(""),
   phone: z.string().optional().default(""),

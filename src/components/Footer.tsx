@@ -1,4 +1,4 @@
-﻿import { useShop } from "../public/api/useShop";
+import { useShop } from "../public/api/useShop";
 import { useLocation } from "react-router-dom";
 
 export default function Footer() {
@@ -18,11 +18,12 @@ export default function Footer() {
           {shop?.working_hours ? (
             <div className="mt-1">{shop.working_hours}</div>
           ) : (
-            <div className="mt-1">Mon–Sun</div>
+            <div className="mt-1">Mon-Sun</div>
           )}
         </div>
-        <div className="text-gray-500 md:text-right">© {new Date().getFullYear()} {shop?.name || "Pancakes Shop"}</div>
+        <div className="text-gray-500 md:text-right">c {new Date().getFullYear()} {shop?.name || "Pancakes Shop"}</div>
       </div>
     </footer>
   );
 }
+

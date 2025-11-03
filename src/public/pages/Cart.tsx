@@ -1,4 +1,4 @@
-﻿import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useShop } from "../api/useShop";
 import usePageTitle from "../../hooks/usePageTitle";
@@ -8,12 +8,13 @@ export default function Cart() {
   const navigate = useNavigate();
   const { items, subtotal, setQty, remove } = useCart();
   const { data: shop } = useShop();
-  usePageTitle(`${shop?.name || "Pancakes Shop"} - Корпа`);
+  usePageTitle(`${shop?.name || "Pancakes Shop"} - Кошничка`);
   const currency = shop?.currency || "";
   const minOrder = Number(shop?.min_order || 0);
   const canCheckout = items.length > 0 && subtotal >= minOrder;
   function isShopClosed(): boolean {
     const s: any = shop || {};
+    if (typeof s.is_open_effective === 'boolean') return !s.is_open_effective;
     if (s.is_open === false) return true;
     try {
       const cu = s.closed_until ? new Date(s.closed_until) : null;
@@ -25,6 +26,7 @@ export default function Cart() {
     const now = new Date();
     const d = days[now.getDay()];
     const raw = wh[d] ?? wh[String(now.getDay())];
+    if (typeof raw === 'string' && raw.trim().toLowerCase() === 'closed') return true;
     const parseRanges = (val: any): Array<[number, number]> => {
       const out: Array<[number, number]> = [];
       const add = (s: string) => {
@@ -35,7 +37,7 @@ export default function Cart() {
           const [bh,bm] = b.split(':').map(Number);
           const start = (Number.isFinite(ah)?ah:0)*60 + (Number.isFinite(am)?am:0);
           const end = (Number.isFinite(bh)?bh:0)*60 + (Number.isFinite(bm)?bm:0);
-          if (end>start) out.push([start,end]);
+          out.push([start,end]);
         });
       };
       if (typeof val === 'string') add(val);
@@ -45,14 +47,14 @@ export default function Cart() {
     const ranges = parseRanges(raw);
     if (ranges.length === 0) return false;
     const mins = now.getHours()*60 + now.getMinutes();
-    const open = ranges.some(([s,e]) => mins>=s && mins<e);
+    const open = ranges.some(([s,e]) => (e>s ? mins>=s && mins<e : mins>=s || mins<e));
     return !open;
   }
   const shopClosed = isShopClosed();
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-amber-700">Корпа</h1>
+        <h1 className="text-2xl font-bold text-amber-700">Кошничка</h1>
         <Link to="/menu" className="underline text-amber-700">Back to Menu</Link>
       </div>
       <div className="rounded-xl border bg-white p-6 text-gray-700">
@@ -170,3 +172,4 @@ export default function Cart() {
     </div>
   );
 }
+

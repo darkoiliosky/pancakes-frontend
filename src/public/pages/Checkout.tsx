@@ -40,6 +40,7 @@ export default function Checkout() {
   // Determine closed status using working_hours_json and closed_until
   function isShopClosed(): boolean {
     const s: any = shop || {};
+    if (typeof s.is_open_effective === 'boolean') return !s.is_open_effective;
     if (s.is_open === false) return true;
     // closed_until in future
     try {
@@ -53,6 +54,7 @@ export default function Checkout() {
     const now = new Date();
     const d = days[now.getDay()];
     const raw = wh[d] ?? wh[String(now.getDay())];
+    if (typeof raw === 'string' && raw.trim().toLowerCase() === 'closed') return true;
     const parseRanges = (val: any): Array<[number, number]> => {
       const out: Array<[number, number]> = [];
       const add = (s: string) => {
@@ -73,7 +75,7 @@ export default function Checkout() {
     const ranges = parseRanges(raw);
     if (ranges.length === 0) return false;
     const mins = now.getHours()*60 + now.getMinutes();
-    const open = ranges.some(([s,e]) => mins>=s && mins<e);
+    const open = ranges.some(([s,e]) => (e>s ? mins>=s && mins<e : mins>=s || mins<e));
     return !open;
   }
   const shopClosed = isShopClosed();

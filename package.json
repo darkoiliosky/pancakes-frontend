@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
+    "lint:quotes": "node scripts/no-smart-quotes.js",
     "test": "vitest run --coverage",
     "test:e2e": "playwright test"
   },
@@ -75,3 +76,4 @@
   },
   "browserslist": {}
 }
+

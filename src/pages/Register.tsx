@@ -1,4 +1,4 @@
-﻿// src/pages/Register.tsx
+// src/pages/Register.tsx
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -123,3 +123,4 @@ function Register() {
 }
 
 export default Register;
+

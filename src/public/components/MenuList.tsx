@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { PublicMenuItem } from "../api/useMenu";
 import { useCart } from "../context/CartContext";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
@@ -34,6 +34,7 @@ export default function MenuList({
   // Detect shop closed (same logic as Checkout)
   function isShopClosed(): boolean {
     const s: any = shop || {};
+    if (typeof s.is_open_effective === 'boolean') return !s.is_open_effective;
     if (s.is_open === false) return true;
     try {
       const cu = s.closed_until ? new Date(s.closed_until) : null;
@@ -45,6 +46,7 @@ export default function MenuList({
     const now = new Date();
     const d = days[now.getDay()];
     const raw = wh[d] ?? wh[String(now.getDay())];
+    if (typeof raw === 'string' && raw.trim().toLowerCase() === 'closed') return true;
     const parseRanges = (val: any): Array<[number, number]> => {
       const out: Array<[number, number]> = [];
       const add = (s: string) => {
@@ -55,24 +57,19 @@ export default function MenuList({
             if (!a || !b) return;
             const [ah, am] = a.split(":").map(Number);
             const [bh, bm] = b.split(":").map(Number);
-            const start =
-              (Number.isFinite(ah) ? ah : 0) * 60 +
-              (Number.isFinite(am) ? am : 0);
-            const end =
-              (Number.isFinite(bh) ? bh : 0) * 60 +
-              (Number.isFinite(bm) ? bm : 0);
-            if (end > start) out.push([start, end]);
+            const start = (Number.isFinite(ah) ? ah : 0) * 60 + (Number.isFinite(am) ? am : 0);
+            const end = (Number.isFinite(bh) ? bh : 0) * 60 + (Number.isFinite(bm) ? bm : 0);
+            out.push([start, end]);
           });
       };
       if (typeof val === "string") add(val);
-      else if (Array.isArray(val))
-        val.forEach((x) => typeof x === "string" && add(x));
+      else if (Array.isArray(val)) val.forEach((x) => typeof x === "string" && add(x));
       return out;
     };
     const ranges = parseRanges(raw);
     if (ranges.length === 0) return false;
     const mins = now.getHours() * 60 + now.getMinutes();
-    const open = ranges.some(([s, e]) => mins >= s && mins < e);
+    const open = ranges.some(([s, e]) => (e > s ? mins >= s && mins < e : mins >= s || mins < e));
     return !open;
   }
   const shopClosed = isShopClosed();
@@ -137,7 +134,7 @@ export default function MenuList({
               <h2 className="text-lg md:text-xl font-semibold text-amber-800 tracking-tight">
                 {group}
               </h2>
-              <span className="text-xs text-amber-700">В· {items.length}</span>
+              <span className="text-xs text-amber-700">× {items.length}</span>
               <div className="flex-1 h-px bg-gradient-to-r from-amber-200 to-transparent ml-2" />
             </div>
           </div>
@@ -209,8 +206,7 @@ export default function MenuList({
                       {isCustomer ? (
                         shopClosed ? (
                           <div className="flex-1 text-center text-xs text-gray-600 bg-gray-50 border rounded px-3 py-2">
-                            рџ•’ The shop is currently closed. WeвЂ™ll open
-                            again soon!
+                            The shop is currently closed. We'll open again soon!
                           </div>
                         ) : (
                           <Button
@@ -269,7 +265,9 @@ export default function MenuList({
         onClose={() => setCustomizeFor(null)}
         onConfirm={({ item, quantity, selected, note, details }) => {
           if (!item) return;
-          const mods = Array.from(selected.values()).flatMap((s) => Array.from(s));
+          const mods = Array.from(selected.values()).flatMap((s) =>
+            Array.from(s)
+          );
           add({
             item_id: item.id,
             name: item.name,
@@ -282,7 +280,6 @@ export default function MenuList({
           setCustomizeFor(null);
         }}
       />
-      
     </div>
   );
 }
@@ -292,7 +289,10 @@ type ConfirmPayload = {
   quantity: number;
   selected: Map<number, Set<number>>; // groupId -> optionIds
   note?: string;
-  details: { group: string; options: { id: number; name: string; price: number }[] }[];
+  details: {
+    group: string;
+    options: { id: number; name: string; price: number }[];
+  }[];
 };
 
 function ItemCustomizeModal({
@@ -312,9 +312,13 @@ function ItemCustomizeModal({
 }) {
   const itemId = item?.id || 0;
   const { data, isLoading, isError } = useModifiers(itemId || 0);
-  const groups: PublicModifierGroup[] = Array.isArray(data) ? (data as PublicModifierGroup[]) : [];
+  const groups: PublicModifierGroup[] = Array.isArray(data)
+    ? (data as PublicModifierGroup[])
+    : [];
   const [selected, setSelected] = useState<Map<number, Set<number>>>(new Map());
-  const [qty, setQty] = useState<number>(Math.max(1, Math.min(99, Math.floor(initialQty || 1))));
+  const [qty, setQty] = useState<number>(
+    Math.max(1, Math.min(99, Math.floor(initialQty || 1)))
+  );
   const [note, setNote] = useState<string>("");
 
   useEffect(() => {
@@ -360,10 +364,12 @@ function ItemCustomizeModal({
       open={open}
       onClose={onClose}
       onConfirm={() => {
-        const details = groups.map((g) => ({
-          group: g.title,
-          options: g.options.filter((o) => selected.get(g.id)?.has(o.id)),
-        })).filter((g) => g.options.length > 0);
+        const details = groups
+          .map((g) => ({
+            group: g.title,
+            options: g.options.filter((o) => selected.get(g.id)?.has(o.id)),
+          }))
+          .filter((g) => g.options.length > 0);
         onConfirm({ item, quantity: qty, selected, note, details });
       }}
       title={item ? item.name : "Add to order"}
@@ -382,16 +388,24 @@ function ItemCustomizeModal({
               />
             ) : null}
             <div className="min-w-0">
-              <div className="text-lg font-semibold text-amber-800">{item.name}</div>
-              <div className="text-sm text-gray-700">{formatCurrency(item.price, currency)}</div>
+              <div className="text-lg font-semibold text-amber-800">
+                {item.name}
+              </div>
+              <div className="text-sm text-gray-700">
+                {formatCurrency(item.price, currency)}
+              </div>
               {item.description && (
-                <p className="text-sm text-gray-600 mt-1 line-clamp-3">{item.description}</p>
+                <p className="text-sm text-gray-600 mt-1 line-clamp-3">
+                  {item.description}
+                </p>
               )}
             </div>
           </div>
 
           {isError && (
-            <div className="text-sm text-gray-600">Extras unavailable right now</div>
+            <div className="text-sm text-gray-600">
+              Extras unavailable right now
+            </div>
           )}
 
           {!isError && !isLoading && groups.length > 0 && (
@@ -406,7 +420,9 @@ function ItemCustomizeModal({
                 return (
                   <div key={g.id} className="rounded-lg border p-3 bg-white">
                     <div className="font-medium text-amber-800">{g.title}</div>
-                    {g.hint && <div className="text-xs text-gray-600 mb-2">{g.hint}</div>}
+                    {g.hint && (
+                      <div className="text-xs text-gray-600 mb-2">{g.hint}</div>
+                    )}
                     <div className="space-y-2">
                       {showNoThanks && (
                         <label className="flex items-center justify-between px-3 py-2 rounded-lg border hover:bg-amber-50 cursor-pointer select-none">
@@ -422,10 +438,21 @@ function ItemCustomizeModal({
                             }}
                           />
                           <span className="flex items-center gap-3">
-                            <span className={`w-5 h-5 inline-flex items-center justify-center rounded ${sel.size === 0 ? "bg-amber-500 text-white" : "border border-amber-300"}`}>
+                            <span
+                              className={`w-5 h-5 inline-flex items-center justify-center rounded ${sel.size === 0 ? "bg-amber-500 text-white" : "border border-amber-300"}`}
+                            >
                               {sel.size === 0 && (
-                                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <path d="M7.629 13.314L4.314 10l-1.257 1.257 4.572 4.571 9.314-9.314L15.686 5l-8.057 8.314z" fill="currentColor" />
+                                <svg
+                                  width="12"
+                                  height="12"
+                                  viewBox="0 0 20 20"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M7.629 13.314L4.314 10l-1.257 1.257 4.572 4.571 9.314-9.314L15.686 5l-8.057 8.314z"
+                                    fill="currentColor"
+                                  />
                                 </svg>
                               )}
                             </span>
@@ -440,7 +467,11 @@ function ItemCustomizeModal({
                         const inputType = isSingle ? "radio" : "checkbox";
                         const optId = `opt-${g.id}-${o.id}`;
                         return (
-                          <label key={o.id} htmlFor={optId} className={`flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer select-none transition ${checked ? "bg-amber-50 border-amber-300" : "bg-white hover:bg-amber-50"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+                          <label
+                            key={o.id}
+                            htmlFor={optId}
+                            className={`flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer select-none transition ${checked ? "bg-amber-50 border-amber-300" : "bg-white hover:bg-amber-50"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
                             <input
                               id={optId}
                               type={inputType}
@@ -463,22 +494,37 @@ function ItemCustomizeModal({
                               }}
                             />
                             <span className="flex items-center gap-3">
-                              <span className={`w-5 h-5 inline-flex items-center justify-center rounded ${checked ? "bg-amber-500 text-white" : "border border-amber-300"}`}>
+                              <span
+                                className={`w-5 h-5 inline-flex items-center justify-center rounded ${checked ? "bg-amber-500 text-white" : "border border-amber-300"}`}
+                              >
                                 {checked && (
-                                  <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M7.629 13.314L4.314 10l-1.257 1.257 4.572 4.571 9.314-9.314L15.686 5l-8.057 8.314z" fill="currentColor" />
+                                  <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 20 20"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      d="M7.629 13.314L4.314 10l-1.257 1.257 4.572 4.571 9.314-9.314L15.686 5l-8.057 8.314z"
+                                      fill="currentColor"
+                                    />
                                   </svg>
                                 )}
                               </span>
                               <span className="text-sm">{o.name}</span>
                             </span>
-                            <span className="tabular-nums text-gray-700">{formatCurrency(Number(o.price || 0), currency)}</span>
+                            <span className="tabular-nums text-gray-700">
+                              {formatCurrency(Number(o.price || 0), currency)}
+                            </span>
                           </label>
                         );
                       })}
                     </div>
                     {max > 0 && sel.size >= max && (
-                      <div className="mt-1 text-[11px] text-gray-600">Max {max} selected</div>
+                      <div className="mt-1 text-[11px] text-gray-600">
+                        Max {max} selected
+                      </div>
                     )}
                   </div>
                 );
@@ -487,7 +533,10 @@ function ItemCustomizeModal({
           )}
 
           <div>
-            <label htmlFor="item-note" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="item-note"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Add a note (optional)
             </label>
             <textarea
@@ -501,7 +550,10 @@ function ItemCustomizeModal({
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2" aria-label="Quantity selector">
+            <div
+              className="flex items-center gap-2"
+              aria-label="Quantity selector"
+            >
               <button
                 type="button"
                 className="px-3 py-1 border rounded"
@@ -516,7 +568,14 @@ function ItemCustomizeModal({
                 max={99}
                 className="w-20 border rounded-lg px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-amber-300"
                 value={qty}
-                onChange={(e) => setQty(Math.max(1, Math.min(99, Math.floor(Number(e.target.value) || 1))))}
+                onChange={(e) =>
+                  setQty(
+                    Math.max(
+                      1,
+                      Math.min(99, Math.floor(Number(e.target.value) || 1))
+                    )
+                  )
+                }
                 aria-label="Quantity"
               />
               <button
@@ -529,7 +588,10 @@ function ItemCustomizeModal({
               </button>
             </div>
             <div className="text-sm text-gray-700">
-              Total: <span className="font-semibold">{formatCurrency(total, currency)}</span>
+              Total:{" "}
+              <span className="font-semibold">
+                {formatCurrency(total, currency)}
+              </span>
             </div>
           </div>
         </div>
@@ -541,4 +603,3 @@ function ItemCustomizeModal({
 // legacy ExtrasModal removed
 
 // legacy Extras component removed
-
